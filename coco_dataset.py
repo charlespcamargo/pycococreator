@@ -17,6 +17,7 @@ class CocoDataset():
         self.image_dir = args.images_path
         self.mask_dir = args.masks_path
         self.max_width = args.max_width
+        self.image_id = args.image_id
 
         # Customize these segmentation colors if you like, if there are more segmentations
         # than colors in an image, the remaining segmentations will default to white
@@ -32,7 +33,7 @@ class CocoDataset():
         self._process_images()
         self._process_segmentations()
 
-        html = self.display_image(image_id=10, max_width=self.max_width)
+        html = self.display_image(image_id=self.image_id, max_width=self.max_width)
 
         with open("file.html", "w") as file:
             file.write(html)
@@ -294,8 +295,11 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--masks_path", dest="masks_path",
                         default="datasets/hedychium_coronarium/train/annotations", help="path to masks")
 
-    parser.add_argument("-mw", "--max_width", dest="max_width", default=950, type=int,
+    parser.add_argument("-mw", "--max_width", dest="max_width", default=920, type=int,
                         help="max width to show images")
+
+    parser.add_argument("-id", "--image_id", dest="image_id", default=10, type=int,
+                        help="image to open/generate HTML") 
 
     args = parser.parse_args()
 
