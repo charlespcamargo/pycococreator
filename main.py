@@ -28,7 +28,7 @@ class PyCocoCreator():
         self.images_path = args.images_path
         self.masks_path = args.masks_path
         
-        self.ROOT_DIR = os.path.join('datasets', self.DATABASE_NAME)
+        # self.ROOT_DIR = os.path.join('datasets', self.DATABASE_NAME)
         self.IMAGE_DIR = os.path.join(self.images_path) #self.ROOT_DIR, "train/images")
         self.ANNOTATION_DIR = os.path.join(self.masks_path) #self.ROOT_DIR, "train/annotations")
 
@@ -108,7 +108,7 @@ class PyCocoCreator():
 
                 image_id = image_id + 1
 
-        with open(f'{self.ROOT_DIR}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
+        with open(f'{self.IMAGE_DIR}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
             json.dump(self.coco_output, output_json_file)
 
 
