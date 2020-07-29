@@ -15,22 +15,27 @@ import numpy as np
 from itertools import groupby
 from skimage import measure
 from PIL import Image
-from pycocotools import mask 
+from pycocotools import mask
 import glob
+
 
 class PyCocoCreator():
 
     def main(self, args):
-        
+
         print(args)
 
         self.DATABASE_NAME = args.database_name
+        self.base_path = args.base_path
         self.images_path = args.images_path
         self.masks_path = args.masks_path
-        
+
         # self.ROOT_DIR = os.path.join('datasets', self.DATABASE_NAME)
-        self.IMAGE_DIR = os.path.join(self.images_path) #self.ROOT_DIR, "train/images")
-        self.ANNOTATION_DIR = os.path.join(self.masks_path) #self.ROOT_DIR, "train/annotations")
+        # self.ROOT_DIR, "train/images")
+        # self.ROOT_DIR, "train/annotations")
+
+        self.IMAGE_DIR = os.path.join(self.base_path, self.images_path)
+        self.ANNOTATION_DIR = os.path.join(self.base_path, self.masks_path)
 
         self.INFO = {
             "description": self.DATABASE_NAME,
@@ -55,7 +60,7 @@ class PyCocoCreator():
                 "id": 1,
                 "name": "hedychium_coronarium"
             }
-        ] 
+        ]
 
         self.coco_output = {
             "info": self.INFO,
@@ -64,7 +69,6 @@ class PyCocoCreator():
             "images": [],
             "annotations": []
         }
-        
 
         image_id = 1
         segmentation_id = 1
@@ -72,18 +76,22 @@ class PyCocoCreator():
         # filter for jpeg images
         for root, _, files in os.walk(self.IMAGE_DIR):
             image_files = self.filter_for_images(root, files)
+            has_annotation = False
 
             # go through each image
             for image_filename in image_files:
                 image = Image.open(image_filename)
                 image_info = self.create_image_info(
                     image_id, os.path.basename(image_filename), image.size)
-                self.coco_output["images"].append(image_info)
 
                 # filter for associated png annotations
                 for root, _, files in os.walk(self.ANNOTATION_DIR):
                     annotation_files = self.filter_for_annotations(
                         root, files, image_filename)
+
+                    if(not annotation_files or len(annotation_files) == 0):
+                        print(
+                            f'\n-------------------- without annotations_files {image_filename}\n')
 
                     # go through each associated annotation
                     for annotation_filename in annotation_files:
@@ -93,24 +101,32 @@ class PyCocoCreator():
                         class_id = 1
 
                         category_info = {'id': class_id,
-                                        'is_crowd': 'crowd' in image_filename}
+                                         'is_crowd': 'crowd' in image_filename}
                         binary_mask = np.asarray(Image.open(annotation_filename)
-                                                .convert('1')).astype(np.uint8)
+                                                 .convert('1')).astype(np.uint8)
 
                         self.annotation_info = self.create_annotation_info(
                             segmentation_id, image_id, category_info, binary_mask,
                             image.size, tolerance=2)
 
                         if self.annotation_info is not None:
-                            self.coco_output["annotations"].append(self.annotation_info)
+                            self.coco_output["annotations"].append(
+                                self.annotation_info)
+                            has_annotation = True
 
                         segmentation_id = segmentation_id + 1
 
+                if (has_annotation == True):
+                    self.coco_output["images"].append(image_info)
+                else:
+                    print(
+                        f'\n------------ The image {image_filename} has no annotations. ------------\n')
+
                 image_id = image_id + 1
 
-        with open(f'{self.IMAGE_DIR}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
+        with open(f'{self.base_path}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
             json.dump(self.coco_output, output_json_file)
-
+            print(f"\nfile saved {self.base_path}{self.DATABASE_NAME}.json\n")
 
     def filter_for_images(self, root, files):
         file_types = ['*.jpeg', '*.jpg', '*.JPEG', '*.JPG', '*.png', '*.PNG']
@@ -119,7 +135,6 @@ class PyCocoCreator():
         files = [f for f in files if re.match(file_types, f)]
 
         return files
-
 
     def filter_for_annotations(self, root, files, image_filename):
         file_types = ['*.jpeg', '*.jpg', '*.JPEG', '*.JPG', '*.png', '*.PNG']
@@ -134,24 +149,21 @@ class PyCocoCreator():
 
         return files
 
+    def convert(self, text): return int(
+        text) if text.isdigit() else text.lower()
 
-    def convert(self, text): return int(text) if text.isdigit() else text.lower()
-
-
-    def natrual_key(self, key): return [convert(c) for c in re.split('([0-9]+)', key)]
-
+    def natrual_key(self, key): return [convert(c)
+                                        for c in re.split('([0-9]+)', key)]
 
     def resize_binary_mask(self, array, new_size):
         image = Image.fromarray(array.astype(np.uint8)*255)
         image = image.resize(new_size)
         return np.asarray(image).astype(np.bool_)
 
-
     def close_contour(self, contour):
         if not np.array_equal(contour[0], contour[-1]):
             contour = np.vstack((contour, contour[0]))
         return contour
-
 
     def binary_mask_to_rle(self, binary_mask):
         rle = {'counts': [], 'size': list(binary_mask.shape)}
@@ -162,7 +174,6 @@ class PyCocoCreator():
             counts.append(len(list(elements)))
 
         return rle
-
 
     def binary_mask_to_polygon(self, binary_mask, tolerance=0):
         """Converts a binary mask to COCO polygon representation
@@ -192,10 +203,9 @@ class PyCocoCreator():
 
         return polygons
 
-
     def create_image_info(self, image_id, file_name, image_size,
-                        date_captured=datetime.datetime.utcnow().isoformat(' '),
-                        license_id=1, coco_url="", flickr_url=""):
+                          date_captured=datetime.datetime.utcnow().isoformat(' '),
+                          license_id=1, coco_url="", flickr_url=""):
 
         image_info = {
             "id": image_id,
@@ -210,9 +220,8 @@ class PyCocoCreator():
 
         return image_info
 
-
     def create_annotation_info(self, annotation_id, image_id, category_info, binary_mask,
-                            image_size=None, tolerance=2, bounding_box=None):
+                               image_size=None, tolerance=2, bounding_box=None):
 
         if image_size is not None:
             binary_mask = self.resize_binary_mask(binary_mask, image_size)
@@ -243,6 +252,7 @@ class PyCocoCreator():
             "iscrowd": is_crowd,
             "area": area.tolist(),
             "bbox": bounding_box.tolist(),
+            "bbox_mode": 0,  # from detectron2.structures import BoxMode 'BoxMode.XYXY_ABS'
             "segmentation": segmentation,
             "width": binary_mask.shape[1],
             "height": binary_mask.shape[0],
@@ -259,14 +269,16 @@ if __name__ == "__main__":
     parser.add_argument("-dn", "--database_name", dest="database_name",
                         default="hedychium_coronarium", help="path to root of datasets")
 
+    parser.add_argument("-b", "--base_path", dest="base_path",
+                        default="../images/train/", help="base path to images")
+
     parser.add_argument("-i", "--images_path", dest="images_path",
-                        default="../images/images/", help="path to images")
+                        default="images/", help="path to images")
 
     parser.add_argument("-m", "--masks_path", dest="masks_path",
-                        default="../images/masks/", help="path to masks")
+                        default="masks/", help="path to masks")
 
     args = parser.parse_args()
 
     coco = PyCocoCreator()
     coco.main(args)
-    
