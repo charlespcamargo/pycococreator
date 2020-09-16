@@ -6,6 +6,7 @@ import numpy as np
 from math import trunc
 import base64
 from io import BytesIO
+import os
 
 import IPython
 
@@ -14,8 +15,10 @@ class CocoDataset():
     def main(self, args):
 
         self.annotation_path = args.instances_json_path
-        self.image_dir = args.images_path
-        self.mask_dir = args.masks_path
+        self.base_path = args.base_path
+        self.image_dir = os.path.join(self.base_path, args.images_path)
+        self.mask_dir = os.path.join(self.base_path, args.masks_path)
+
         self.max_width = args.max_width
         self.image_id = args.image_id
 
@@ -32,11 +35,6 @@ class CocoDataset():
         self._process_categories()
         self._process_images()
         self._process_segmentations()
-
-        html = self.display_image(image_id=self.image_id, max_width=self.max_width)
-
-        with open("file.html", "w") as file:
-            file.write(html)
 
     def _process_info(self):
         self.info = self.coco['info']
@@ -114,32 +112,48 @@ class CocoDataset():
         for sc_name, set_of_cat_ids in self.super_categories.items():
             print(f'  super_category: {sc_name}')
             for cat_id in set_of_cat_ids:
-                print(f'    id {cat_id}: {self.categories[cat_id]["name"]}'
-                      )
+                print(f'    id {cat_id}: {self.categories[cat_id]["name"]}')
 
-            print('')
-
-    def display_image(self, image_id, show_bbox=True, show_polys=True, show_crowds=True, max_width=4000):
-        print('Image')
-        print('==================')
-
-        # Print image info
-        image = self.images[image_id]
-        mask = self.annotations[image_id]
-
-        for key, val in image.items():
-            print(f'  {key}: {val}')
-
-        file_name = image['file_name']
+    def load_image(self, img_dir, image):
         # Open the image
-        image, image_path = self.load_image(image)
-        mask, mask_path = self.load_image(mask, file_name)
-
-        # Calculate the size and adjusted display size
+        image_path = Path(img_dir) / image['file_name']
+        image = PILImage.open(image_path)
+        
+        buffer = BytesIO()
+        image.save(buffer, format='PNG')
+        buffer.seek(0)
+        
+        data_uri = base64.b64encode(buffer.read()).decode('ascii')
+        return image, "data:image/png;base64,{0}".format(data_uri)
+    
+    def resize_image(self, image):
+        max_width = 800
         image_width, image_height = image.size
         adjusted_width = min(image_width, max_width)
         adjusted_ratio = adjusted_width / image_width
         adjusted_height = adjusted_ratio * image_height
+
+        return adjusted_width, adjusted_ratio, adjusted_height
+
+    def display_image(self, image_id, show_bbox=True, show_polys=True, show_crowds=True):
+        print('Image')
+        print('==================')
+
+         # Print image info
+        image = self.images[image_id]
+        mask_image = self.annotations[image_id]
+        
+        for key, val in image.items():
+            print(f'  {key}: {val}')
+
+        # Open the image
+        image, image_path = self.load_image(self.image_dir, image)
+        mask_image, mask_path = self.load_image(self.mask_dir, mask_image)
+        
+        # Calculate the size and adjusted display size
+        adjusted_width, adjusted_ratio, adjusted_height = self.resize_image(image)
+        adj_width_mask, adj_ratio_mask, adj_height_mask = self.resize_image(mask_image)
+
 
         # Create bounding boxes and polygons
         bboxes = dict()
@@ -148,9 +162,9 @@ class CocoDataset():
         seg_colors = dict()
 
         try:
-            self.segmentations[image_id]
+          self.segmentations[image_id]
         except IndexError:
-            raise f'sorry, there is not segmentations for image_id: {image_id}'
+          raise f'sorry, there is not segmentations for image_id: {image_id}'
 
         for i, seg in enumerate(self.segmentations[image_id]):
             if i < len(self.colors):
@@ -165,14 +179,11 @@ class CocoDataset():
                 seg['bbox'], adjusted_ratio).astype(int)
 
             # meus dados estão errados, por algum motivo, ele é 1, mas está igual a zero
-            # if seg['iscrowd'] == 0 or seg['iscrowd'] == 1:
             if seg['iscrowd'] == 0:
                 polygons[seg['id']] = []
                 for seg_points in seg['segmentation']:
-                    seg_points = np.multiply(
-                        seg_points, adjusted_ratio).astype(int)
-                    polygons[seg['id']].append(
-                        str(seg_points).lstrip('[').rstrip(']'))
+                    seg_points = np.multiply(seg_points, adjusted_ratio).astype(int)
+                    polygons[seg['id']].append(str(seg_points).lstrip('[').rstrip(']'))
             else:
                 # Decode the RLE
                 px = 0
@@ -223,62 +234,64 @@ class CocoDataset():
                 if len(rle_list) > 0:
                     rle_regions[seg['id']] = rle_list
 
-        html = '<div class="container" style="position:relative;float:left">'
-        html += f'<img id="mask_img" src="{str(mask_path)}" style="position:relative; top:0px; left:0px;width:{adjusted_width}">'
-        html += '</div>'
-
         # Draw the image
-        html += '<div class="container" style="position:relative;float:right">'
-        html += f'<img src="{str(image_path)}" style="position:relative; top:0px; left:0px;width: {adjusted_width}">'
+        html = '<div class="container" style="position:relative;">'
+        html += f'<img src="{str(image_path)}" style="position:relative; top:0px; left:0px; width:{adjusted_width}px; float:left">'
         html += '<div class="svgclass">'
         html += f'<svg width="{adjusted_width}" height="{adjusted_height}">'
-
+        
         # Draw shapes on image
         if show_polys:
             for seg_id, points_list in polygons.items():
                 for points in points_list:
                     html += f'<polygon points="{points}" \
                         style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.5; stroke-width:1;" />'
-
+        
         if show_crowds:
             for seg_id, line_list in rle_regions.items():
                 for line in line_list:
                     html += f'<rect x="{line[0]}" y="{line[1]}" width="{line[2]}" height="{line[3]}" \
                         style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; \
                         fill-opacity:0.5; stroke-opacity:0.5" />'
-
+        
         if show_bbox:
             for seg_id, bbox in bboxes.items():
                 html += f'<rect x="{bbox[0]}" y="{bbox[1]}" width="{bbox[2]}" height="{bbox[3]}" \
                     style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0" />'
-
+        
         html += '</svg>'
         html += '</div>'
+        
+        # Draw the mask image
+        html += '<div style="position:relative;">'
+        html += f'<img src="{str(mask_path)}" style="position:relative; top:0px; left:0px; width:{adjusted_width}px; float:right">'
+        html += '</div>'
+
         html += '</div>'
         html += '<style>'
         html += '.svgclass {position: absolute; top:0px; left: 0px}'
         html += '</style>'
-
+        
         return html
 
-    def load_image(self, image, file_name=''):
-        image_path = None
+    # def load_image(self, image, file_name=''):
+    #     image_path = None
 
-        if(not file_name):
-            image_path = Path(self.image_dir) / image['file_name']
-        else:
-            image_path = Path(self.mask_dir) / file_name
+    #     if(not file_name):
+    #         image_path = Path(self.image_dir) / image['file_name']
+    #     else:
+    #         image_path = Path(self.mask_dir) / file_name
 
-        image = PILImage.open(image_path)
+    #     image = PILImage.open(image_path)
 
-        buffer = BytesIO()
-        image.save(buffer, format='PNG')
-        buffer.seek(0)
+    #     buffer = BytesIO()
+    #     image.save(buffer, format='PNG')
+    #     buffer.seek(0)
 
-        data_uri = base64.b64encode(buffer.read()).decode('ascii')
-        image_path = "data:image/png;base64,{0}".format(data_uri)
+    #     data_uri = base64.b64encode(buffer.read()).decode('ascii')
+    #     image_path = "data:image/png;base64,{0}".format(data_uri)
 
-        return image, image_path
+    #     return image, image_path
 
 
 if __name__ == "__main__":
