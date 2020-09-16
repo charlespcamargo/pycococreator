@@ -1,219 +1,55 @@
-#!/usr/bin/env python3
-
-import datetime
-import json
-import os
-import re
-import fnmatch
-from PIL import Image
-import numpy as np
-
-from itertools import groupby
-from skimage import measure
-
-from pycocotools.coco import COCO
-from pycocotools import mask
+from pycococreator import PyCocoCreator
 from pycococreatortools import PyCocoCreatorTools
 from coco_dataset import CocoDataset
-import glob
+from coco_json_utils import CocoJsonCreator
+from args import Args
 
-from IPython.display import HTML
-
-
-
-class PyCocoCreator():
-
-    def main(self, args, creator_tools, coco_dataset):
-
-        #print(args)
-
-        self.DATABASE_NAME = args.database_name
-        self.base_path = args.base_path
-        self.images_path = args.images_path
-        self.masks_path = args.masks_path
-
-        self.IMAGE_DIR = os.path.join(self.base_path, self.images_path)
-        self.ANNOTATION_DIR = os.path.join(self.base_path, self.masks_path)
-
-        self.init_file()
-
-        # filter for jpeg images
-        for root, _, files in os.walk(self.IMAGE_DIR):
-            image_files = self.filter_for_images(root, files)
-            has_annotation = False
-            self.process_images(image_files)
-
-        self.write_file()
-        self.show_image_with_mask(coco_dataset)
-
-    def init_file(self):
-        self.INFO = {
-            "description": self.DATABASE_NAME,
-            "url": "https://github.com/waspinator/pycococreator",
-            "version": "1.0.0",
-            "year": datetime.date.today().year,
-            "contributor": "Charles Camargo",
-            "date_created": datetime.datetime.utcnow().isoformat(' ')
-        }
-
-        self.LICENSES = [
-            {
-                "id": 1,
-                "name": "Attribution-NonCommercial-Charles-License",
-                "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/"
-            }
-        ]
-
-        self.CATEGORIES = [
-            {
-                "supercategory": "vegetation",
-                "id": 1,
-                "name": "hedychium_coronarium"
-            }
-        ]
-
-        self.coco_output = {
-            "info": self.INFO,
-            "licenses": self.LICENSES,
-            "categories": self.CATEGORIES,
-            "images": [],
-            "annotations": []
-        }
-
-    def process_images(self, image_files):
-        image_id = 1
-        segmentation_id = 1
-
-        # go through each image
-        for image_filename in image_files:
-            image = Image.open(image_filename)
-            image_info = creator_tools.create_image_info(
-                image_id, os.path.basename(image_filename), image.size)
-
-            # filter for associated png annotations
-            for root, _, files in os.walk(self.ANNOTATION_DIR):
-                annotation_files = self.filter_for_annotations(
-                    root, files, image_filename)
-
-                if(not annotation_files or len(annotation_files) == 0):
-                    print(
-                        f'\n-------------------- without annotations_files {image_filename}\n')
-
-                # go through each associated annotation
-                for annotation_filename in annotation_files:
-
-                    print(annotation_filename)
-                    # [x['id'] for x in CATEGORIES if x['name'] in annotation_filename][0]
-                    class_id = 1
-
-                    category_info = {'id': class_id,
-                                     'is_crowd': 'crowd' in image_filename}
-                    #category_info = {'id': class_id, 'is_crowd': True}
-                    binary_mask = np.asarray(Image.open(
-                        annotation_filename).convert('1')).astype(np.uint8)
-
-                    self.annotation_info = creator_tools.create_annotation_info(
-                        segmentation_id, image_id, category_info, binary_mask, image.size, tolerance=2)
-
-                    if self.annotation_info is not None:
-                        self.coco_output["annotations"].append(
-                            self.annotation_info)
-                        has_annotation = True
-
-                    segmentation_id = segmentation_id + 1
-
-            if (has_annotation == True):
-                self.coco_output["images"].append(image_info)
-            else:
-                print(
-                    f'\n------------ The image {image_filename} has no annotations. ------------\n')
-
-            image_id = image_id + 1
-
-    def write_file(self):
-        with open(f'{self.base_path}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
-            json.dump(self.coco_output, output_json_file)
-            print(f"\nfile saved {self.base_path}{self.DATABASE_NAME}.json\n")
-
-    def filter_for_images(self, root, files):
-        file_types = ['*.jpeg', '*.jpg', '*.JPEG', '*.JPG', '*.png', '*.PNG']
-        file_types = r'|'.join([fnmatch.translate(x) for x in file_types])
-        files = [os.path.join(root, f) for f in files]
-        files = [f for f in files if re.match(file_types, f)]
-
-        ############
-        #files = [idx for idx, s in enumerate(files) if 'DJI_0596.JPG' in s][0]
-        files = ['../images/train/images/DJI_0596.JPG',
-                 '../images/train/images/DJI_0595.JPG']
-        ############
-
-        return files
-
-    def filter_for_annotations(self, root, files, image_filename):
-        file_types = ['*.jpeg', '*.jpg', '*.JPEG', '*.JPG', '*.png', '*.PNG']
-        file_types = r'|'.join([fnmatch.translate(x) for x in file_types])
-        basename_no_extension = os.path.splitext(
-            os.path.basename(image_filename))[0]
-        file_name_prefix = basename_no_extension + '.*'
-        files = [os.path.join(root, f) for f in files]
-        files = [f for f in files if re.match(file_types, f)]
-        files = [f for f in files if re.match(
-            file_name_prefix, os.path.splitext(os.path.basename(f))[0])]
-
-        return files
-
-    def convert(self, text):
-        return int(text) if text.isdigit() else text.lower()
-
-    def natrual_key(self, key):
-        return [convert(c) for c in re.split('([0-9]+)', key)]
-
-    def show_image_with_mask(self, coco_dataset):
-        #coco_dataset.display_info()
-        #coco_dataset.display_licenses()
-        coco_dataset.display_categories()
-        
-        html = coco_dataset.display_image(coco_dataset.image_id)
-        HTML(html)         
-    
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate")
-
     parser.add_argument("-dn", "--database_name", dest="database_name",
-                        default="hedychium_coronarium_v2", help="path to root of datasets")
-
+                        default="hedychium_coronarium", help="path to root of datasets")
     parser.add_argument("-b", "--base_path", dest="base_path",
                         default="../images/train/", help="base path to images")
-
     parser.add_argument("-i", "--images_path", dest="images_path",
                         default="images/", help="path to images")
-
     parser.add_argument("-m", "--masks_path", dest="masks_path",
                         default="masks/", help="path to masks")
-    
-
-
-    parser.add_argument("-j", "--instances_json_path", dest="instances_json_path", default="datasets/hedychium_coronarium/hedychium_coronarium.json",
-                        help="path to JSON path of coco instances")
-
+    parser.add_argument("-j", "--instances_json", dest="instances_json", default="coco_instances.json",
+                         help="path to JSON path of coco instances")
     parser.add_argument("-mw", "--max_width", dest="max_width", default=920, type=int,
                         help="max width to show images")
-
     parser.add_argument("-id", "--image_id", dest="image_id", default=10, type=int,
-                        help="image to open/generate HTML") 
+                        help="image to open/generate HTML")
 
+    # Generate COCO JSON - coco_json_utils
+    parser.add_argument("-md", "--mask_definition", dest="mask_definition", default="mask_definition.json", 
+                         help="path to a mask definition JSON file, generated by MaskJsonUtils module")
+    parser.add_argument("-di", "--dataset_info", dest="dataset_info",
+                        help="path to a dataset info JSON file")
+    parser.add_argument("-at", "--generate_automatic_info", dest="generate_automatic_info", default=1, type=int,
+                        help="to generate automatic info: 0 or 1")                        
+    parser.add_argument("-rw", "--width", dest="width", default=4000, type=int,
+                        help="width to resize images")
+    parser.add_argument("-rh", "--height", dest="height", default=3000, type=int,
+                        help="height to resize images")
 
     args = parser.parse_args()
 
+    # this process will be slow.
+    if(Args.generate_automatic_info == 1):
+        cjc = CocoJsonCreator()
+        cjc.main(args)
 
     creator_tools = PyCocoCreatorTools()
-    coco_dataset = CocoDataset()
+    coco_dataset = CocoDataset(args)
     coco_dataset.main(args)
-    
+
     coco = PyCocoCreator()
-    coco.main(args, creator_tools, coco_dataset)
-    
-    
-    
+    coco.main(args, creator_tools)
+
+    # Just For Jupyter/Colab
+    # coco_dataset.display_categories()
+    # html = coco_dataset.display_image(coco_dataset.image_id)
+    # IPython.display.HTML(html)

@@ -14,7 +14,7 @@ import IPython
 class CocoDataset():
     def main(self, args):
 
-        self.annotation_path = args.instances_json_path
+        self.annotation_path = args.instances_json
         self.base_path = args.base_path
         self.image_dir = os.path.join(self.base_path, args.images_path)
         self.mask_dir = os.path.join(self.base_path, args.masks_path)
@@ -68,7 +68,7 @@ class CocoDataset():
         total_image = len(glob.glob(self.image_dir + '/*'))
         total_masks = len(glob.glob(self.mask_dir + '/*'))
 
-        print(f"Images total: {total_image}\n")
+        print(f"Images total: {total_image}")
         print(f"Masks total: {total_masks}\n")
 
         if(total_image != total_masks):
@@ -118,16 +118,16 @@ class CocoDataset():
         # Open the image
         image_path = Path(img_dir) / image['file_name']
         image = PILImage.open(image_path)
-        
+
         buffer = BytesIO()
         image.save(buffer, format='PNG')
         buffer.seek(0)
-        
+
         data_uri = base64.b64encode(buffer.read()).decode('ascii')
         return image, "data:image/png;base64,{0}".format(data_uri)
-    
+
     def resize_image(self, image):
-        max_width = 800
+        max_width = self.max_width
         image_width, image_height = image.size
         adjusted_width = min(image_width, max_width)
         adjusted_ratio = adjusted_width / image_width
@@ -135,25 +135,46 @@ class CocoDataset():
 
         return adjusted_width, adjusted_ratio, adjusted_height
 
-    def display_image(self, image_id, show_bbox=True, show_polys=True, show_crowds=True):
+    def save_images_to_html(self, images_ids, max_width=880, show_bbox=True, show_polys=True, show_crowds=True):
+        
+        html = None
+        
+        print('Images')
+        print('==================')
+        for image in images_ids:
+            html = self.display_image(image, max_width, html)
+        print('==================')
+
+        Html_file= open("results.html","w")
+        Html_file.write(html)
+        Html_file.close()
+
+        print(f"\nfile saved results.html\n")
+    
+    def display_image(self, image_id, max_width=880, html=None, show_bbox=True, show_polys=True, show_crowds=True):
         print('Image')
         print('==================')
 
-         # Print image info
+        # Print image info
         image = self.images[image_id]
         mask_image = self.annotations[image_id]
-        
+
         for key, val in image.items():
             print(f'  {key}: {val}')
-
         # Open the image
         image, image_path = self.load_image(self.image_dir, image)
         mask_image, mask_path = self.load_image(self.mask_dir, mask_image)
-        
-        # Calculate the size and adjusted display size
-        adjusted_width, adjusted_ratio, adjusted_height = self.resize_image(image)
-        adj_width_mask, adj_ratio_mask, adj_height_mask = self.resize_image(mask_image)
 
+        if(max_width != None and max_width > 0):
+            self.max_width = max_width
+
+        # Calculate the size and adjusted display size
+        adjusted_width, adjusted_ratio, adjusted_height = self.resize_image(
+            image)
+        adj_width_mask, adj_ratio_mask, adj_height_mask = self.resize_image(
+            mask_image)
+
+        print(f'ImageId: {image_id} - RESIZE: w: {adj_width_mask} - h: {adj_height_mask} - ratio: {adjusted_ratio}')
 
         # Create bounding boxes and polygons
         bboxes = dict()
@@ -162,9 +183,9 @@ class CocoDataset():
         seg_colors = dict()
 
         try:
-          self.segmentations[image_id]
+            self.segmentations[image_id]
         except IndexError:
-          raise f'sorry, there is not segmentations for image_id: {image_id}'
+            raise f'sorry, there is not segmentations for image_id: {image_id}'
 
         for i, seg in enumerate(self.segmentations[image_id]):
             if i < len(self.colors):
@@ -182,8 +203,10 @@ class CocoDataset():
             if seg['iscrowd'] == 0:
                 polygons[seg['id']] = []
                 for seg_points in seg['segmentation']:
-                    seg_points = np.multiply(seg_points, adjusted_ratio).astype(int)
-                    polygons[seg['id']].append(str(seg_points).lstrip('[').rstrip(']'))
+                    seg_points = np.multiply(
+                        seg_points, adjusted_ratio).astype(int)
+                    polygons[seg['id']].append(
+                        str(seg_points).lstrip('[').rstrip(']'))
             else:
                 # Decode the RLE
                 px = 0
@@ -234,34 +257,37 @@ class CocoDataset():
                 if len(rle_list) > 0:
                     rle_regions[seg['id']] = rle_list
 
+        if html is None:
+            html = ""
+
         # Draw the image
-        html = '<div class="container" style="position:relative;">'
+        html += '<div class="container" style="position:relative;">'
         html += f'<img src="{str(image_path)}" style="position:relative; top:0px; left:0px; width:{adjusted_width}px; float:left">'
         html += '<div class="svgclass">'
         html += f'<svg width="{adjusted_width}" height="{adjusted_height}">'
-        
+
         # Draw shapes on image
         if show_polys:
             for seg_id, points_list in polygons.items():
                 for points in points_list:
                     html += f'<polygon points="{points}" \
                         style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.5; stroke-width:1;" />'
-        
+
         if show_crowds:
             for seg_id, line_list in rle_regions.items():
                 for line in line_list:
                     html += f'<rect x="{line[0]}" y="{line[1]}" width="{line[2]}" height="{line[3]}" \
                         style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; \
                         fill-opacity:0.5; stroke-opacity:0.5" />'
-        
+
         if show_bbox:
             for seg_id, bbox in bboxes.items():
                 html += f'<rect x="{bbox[0]}" y="{bbox[1]}" width="{bbox[2]}" height="{bbox[3]}" \
                     style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0" />'
-        
+
         html += '</svg>'
         html += '</div>'
-        
+
         # Draw the mask image
         html += '<div style="position:relative;">'
         html += f'<img src="{str(mask_path)}" style="position:relative; top:0px; left:0px; width:{adjusted_width}px; float:right">'
@@ -271,35 +297,16 @@ class CocoDataset():
         html += '<style>'
         html += '.svgclass {position: absolute; top:0px; left: 0px}'
         html += '</style>'
-        
+
         return html
-
-    # def load_image(self, image, file_name=''):
-    #     image_path = None
-
-    #     if(not file_name):
-    #         image_path = Path(self.image_dir) / image['file_name']
-    #     else:
-    #         image_path = Path(self.mask_dir) / file_name
-
-    #     image = PILImage.open(image_path)
-
-    #     buffer = BytesIO()
-    #     image.save(buffer, format='PNG')
-    #     buffer.seek(0)
-
-    #     data_uri = base64.b64encode(buffer.read()).decode('ascii')
-    #     image_path = "data:image/png;base64,{0}".format(data_uri)
-
-    #     return image, image_path
-
+        
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate")
 
-    parser.add_argument("-j", "--instances_json_path", dest="instances_json_path", default="datasets/hedychium_coronarium/hedychium_coronarium.json",
+    parser.add_argument("-j", "--instances_json", dest="instances_json", default="coco_instances.json",
                         help="path to JSON path of coco instances")
 
     parser.add_argument("-i", "--images_path", dest="images_path",
@@ -312,7 +319,7 @@ if __name__ == "__main__":
                         help="max width to show images")
 
     parser.add_argument("-id", "--image_id", dest="image_id", default=10, type=int,
-                        help="image to open/generate HTML") 
+                        help="image to open/generate HTML")
 
     args = parser.parse_args()
 
