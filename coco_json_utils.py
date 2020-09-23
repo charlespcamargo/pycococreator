@@ -493,7 +493,7 @@ class GenerateAutomaticInfo():
 
         dir = Path(self.base_path)  / self.database_name
         if(not os.path.exists(dir)):
-            os.makedirs(Path(self.base_path)  / self.database_name)
+            os.makedirs(dir)
 
         output_path = Path(self.base_path) / self.database_name / self.mask_definition
         with open(output_path, 'w+') as output_file:

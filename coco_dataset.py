@@ -7,6 +7,7 @@ from math import trunc
 import base64
 from io import BytesIO
 import os
+import datetime
 
 import IPython
 
@@ -14,7 +15,8 @@ import IPython
 class CocoDataset():
     def main(self, args):
 
-        self.annotation_path = args.instances_json
+        self.annotation_path = args.base_path + \
+            args.database_name + '/' + args.instances_json
         self.base_path = args.base_path
         self.image_dir = os.path.join(self.base_path, args.images_path)
         self.mask_dir = os.path.join(self.base_path, args.masks_path)
@@ -136,24 +138,46 @@ class CocoDataset():
         return adjusted_width, adjusted_ratio, adjusted_height
 
     def save_images_to_html(self, images_ids, max_width=880, show_bbox=True, show_polys=True, show_crowds=True):
-        
+
         html = None
-        
+
         print('Images')
         print('==================')
-        for image in images_ids:
-            html = self.display_image(image, max_width, html)
+
+        data = datetime.datetime.now().strftime("%Y.%m.%d_%H%M%S")
+
+        html_file = open(f"results/{data}_00.html", "w")
+
+        for image_id in images_ids:
+            html = self.save_image_to_html(
+                image_id=image_id, max_width=max_width)
+            html_file.write(html)
+
+            if (image_id > 0 and image_id % 5 == 0):
+                html_file.close()
+                print(f"\nfile saved at: results/{data}_{image_id}.html\n")
+                print('==================')
+
+                html_file = open(f"results/{data}_{image_id}.html", "w")
+
+        html_file.close()
+        print(f"\nfile saved at: results/{data}_{image_id}.html\n")
         print('==================')
 
-        Html_file= open("results.html","w")
-        Html_file.write(html)
-        Html_file.close()
+    def save_image_to_html(self, image_index=None, image_id=None, max_width=880, show_bbox=True, show_polys=True, show_crowds=True):
 
-        print(f"\nfile saved results.html\n")
-    
-    def display_image(self, image_id, max_width=880, html=None, show_bbox=True, show_polys=True, show_crowds=True):
-        print('Image')
+        html = ""
         print('==================')
+
+        if (image_index is None and image_id is None):
+            raise ValueError("You need to pass [image_index] or [image_id]")
+
+        if (image_index and image_id):
+            raise ValueError(
+                "You need to pass only one parameter, choose wisely between: [image_index] and [image_id]")
+
+        if(image_index is not None):
+            image_id = list(self.images)[image_index]
 
         # Print image info
         image = self.images[image_id]
@@ -161,6 +185,7 @@ class CocoDataset():
 
         for key, val in image.items():
             print(f'  {key}: {val}')
+
         # Open the image
         image, image_path = self.load_image(self.image_dir, image)
         mask_image, mask_path = self.load_image(self.mask_dir, mask_image)
@@ -174,7 +199,8 @@ class CocoDataset():
         adj_width_mask, adj_ratio_mask, adj_height_mask = self.resize_image(
             mask_image)
 
-        print(f'ImageId: {image_id} - RESIZE: w: {adj_width_mask} - h: {adj_height_mask} - ratio: {adjusted_ratio}')
+        print(
+            f'ImageId: {image_id} - RESIZE: w: {adj_width_mask} - h: {adj_height_mask} - ratio: {adjusted_ratio}')
 
         # Create bounding boxes and polygons
         bboxes = dict()
@@ -182,87 +208,97 @@ class CocoDataset():
         rle_regions = dict()
         seg_colors = dict()
 
-        try:
-            self.segmentations[image_id]
-        except IndexError:
-            raise f'sorry, there is not segmentations for image_id: {image_id}'
+        if(not self.segmentations.get(image_id)):
+            print(f'segmentation not found! {image_id}')
 
-        for i, seg in enumerate(self.segmentations[image_id]):
-            if i < len(self.colors):
-                seg_colors[seg['id']] = self.colors[i]
-            else:
-                seg_colors[seg['id']] = 'white'
+        else:
+            for i, seg in enumerate(self.segmentations[image_id]):
+                if i < len(self.colors):
+                    seg_colors[seg['id']] = self.colors[i]
+                else:
+                    seg_colors[seg['id']] = 'white'
 
-            print(
-                f'  {seg_colors[seg["id"]]}: {self.categories[seg["category_id"]]["name"]}')
+                print(
+                    f'  {seg_colors[seg["id"]]}: {self.categories[seg["category_id"]]["name"]}')
 
-            bboxes[seg['id']] = np.multiply(
-                seg['bbox'], adjusted_ratio).astype(int)
+                bboxes[seg['id']] = np.multiply(
+                    seg['bbox'], adjusted_ratio).astype(int)
 
-            # meus dados estão errados, por algum motivo, ele é 1, mas está igual a zero
-            if seg['iscrowd'] == 0:
-                polygons[seg['id']] = []
-                for seg_points in seg['segmentation']:
-                    seg_points = np.multiply(
-                        seg_points, adjusted_ratio).astype(int)
-                    polygons[seg['id']].append(
-                        str(seg_points).lstrip('[').rstrip(']'))
-            else:
-                # Decode the RLE
-                px = 0
-                rle_list = []
+                # meus dados estão errados, por algum motivo, ele é 1, mas está igual a zero
+                if seg['iscrowd'] == 0:
+                    polygons[seg['id']] = []
+                    for seg_points in seg['segmentation']:
+                        seg_points = np.multiply(
+                            seg_points, adjusted_ratio).astype(int)
+                        polygons[seg['id']].append(
+                            str(seg_points).lstrip('[').rstrip(']'))
+                else:
+                    # Decode the RLE
+                    px = 0
+                    rle_list = []
 
-                for j, counts in enumerate(seg['segmentation']['counts']):
-                    if counts < 0:
-                        print(
-                            f'ERROR: One of the counts was negative, treating as 0: {counts}')
-                        counts = 0
+                    for j, counts in enumerate(seg['segmentation']['counts']):
+                        if counts < 0:
+                            print(
+                                f'ERROR: One of the counts was negative, treating as 0: {counts}')
+                            counts = 0
 
-                    if j % 2 == 0:
-                        # Empty pixels
-                        px += counts
-                    else:
-                        # Create one or more vertical rectangles
-                        x1 = trunc(px / image_height)
-                        y1 = px % image_height
-                        px += counts
-                        x2 = trunc(px / image_height)
-                        y2 = px % image_height
+                        if j % 2 == 0:
+                            # Empty pixels
+                            px += counts
+                        else:
+                            # Create one or more vertical rectangles
+                            x1 = trunc(px / image_height)
+                            y1 = px % image_height
+                            px += counts
+                            x2 = trunc(px / image_height)
+                            y2 = px % image_height
 
-                        if x2 == x1:  # One vertical column
-                            line = [x1, y1, 1, (y2 - y1)]
-                            line = np.multiply(line, adjusted_ratio)
-                            rle_list.append(line)
-                        else:  # Two or more columns
-                            # Insert left-most line first
-                            left_line = [x1, y1, 1, (image_height - y1)]
-                            left_line = np.multiply(left_line, adjusted_ratio)
-                            rle_list.append(left_line)
+                            if x2 == x1:  # One vertical column
+                                line = [x1, y1, 1, (y2 - y1)]
+                                line = np.multiply(line, adjusted_ratio)
+                                rle_list.append(line)
+                            else:  # Two or more columns
+                                # Insert left-most line first
+                                left_line = [x1, y1, 1, (image_height - y1)]
+                                left_line = np.multiply(
+                                    left_line, adjusted_ratio)
+                                rle_list.append(left_line)
 
-                            # Insert middle lines (if needed)
-                            lines_spanned = x2 - x1 + 1
-                            if lines_spanned > 2:  # Two columns won't have a middle
-                                middle_lines = [
-                                    (x1 + 1), 0, lines_spanned - 2, image_height]
-                                middle_lines = np.multiply(
-                                    middle_lines, adjusted_ratio)
-                                rle_list.append(middle_lines)
+                                # Insert middle lines (if needed)
+                                lines_spanned = x2 - x1 + 1
+                                if lines_spanned > 2:  # Two columns won't have a middle
+                                    middle_lines = [
+                                        (x1 + 1), 0, lines_spanned - 2, image_height]
+                                    middle_lines = np.multiply(
+                                        middle_lines, adjusted_ratio)
+                                    rle_list.append(middle_lines)
 
-                            # Insert right-most line
-                            right_line = [x2, 0, 1, y2]
-                            right_line = np.multiply(
-                                right_line, adjusted_ratio)
-                            rle_list.append(right_line)
+                                # Insert right-most line
+                                right_line = [x2, 0, 1, y2]
+                                right_line = np.multiply(
+                                    right_line, adjusted_ratio)
+                                rle_list.append(right_line)
 
-                if len(rle_list) > 0:
-                    rle_regions[seg['id']] = rle_list
+                    if len(rle_list) > 0:
+                        rle_regions[seg['id']] = rle_list
 
-        if html is None:
-            html = ""
+        html = self.create_html(image_id, image_path, mask_path, adjusted_width, adjusted_height,
+                                show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes, html)
 
+        return html
+
+    def create_html(self, image_id, image_path, mask_path, adjusted_width, adjusted_height, show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes, html):
+        
+        segs = 0
+        if(len(bboxes)>0):
+            segs = len(self.segmentations[image_id])
+        
         # Draw the image
         html += '<div class="container" style="position:relative;">'
-        html += f'<img src="{str(image_path)}" style="position:relative; top:0px; left:0px; width:{adjusted_width}px; float:left">'
+        html += f'<div style="position:relative;border:1 px solid lime">'
+        html += f'<b>Image: <b/>{image_id} - <b>Segmentations:</b> {segs}'
+        html += f'<img src="{str(image_path)}" style="position:relative; top:3px; left:3px; width:{adjusted_width}px; float:left">'
         html += '<div class="svgclass">'
         html += f'<svg width="{adjusted_width}" height="{adjusted_height}">'
 
@@ -294,12 +330,13 @@ class CocoDataset():
         html += '</div>'
 
         html += '</div>'
+        html += '</div>'
         html += '<style>'
-        html += '.svgclass {position: absolute; top:0px; left: 0px}'
+        html += '.svgclass {position: absolute; top:0px; left: 0px} img'
         html += '</style>'
 
         return html
-        
+
 
 if __name__ == "__main__":
     import argparse
@@ -310,10 +347,10 @@ if __name__ == "__main__":
                         help="path to JSON path of coco instances")
 
     parser.add_argument("-i", "--images_path", dest="images_path",
-                        default="datasets/hedychium_coronarium/train/images", help="path to images")
+                        default="images/", help="path to images")
 
     parser.add_argument("-m", "--masks_path", dest="masks_path",
-                        default="datasets/hedychium_coronarium/train/annotations", help="path to masks")
+                        default="masks/", help="path to masks")
 
     parser.add_argument("-mw", "--max_width", dest="max_width", default=920, type=int,
                         help="max width to show images")
@@ -321,7 +358,21 @@ if __name__ == "__main__":
     parser.add_argument("-id", "--image_id", dest="image_id", default=10, type=int,
                         help="image to open/generate HTML")
 
+    parser.add_argument("-dn", "--database_name", dest="database_name",
+                        default="hedychium_coronarium", help="path to root of datasets")
+    parser.add_argument("-b", "--base_path", dest="base_path",
+                        default="../images/train/", help="base path to images")
+
     args = parser.parse_args()
 
     ds = CocoDataset()
     ds.main(args)
+
+    # all loaded images
+    images_ids = ds.images
+
+    # take just some of all
+    n = 20
+    images_ids = list(images_ids)[0:n]
+    ds.display_categories()
+    ds.save_images_to_html(images_ids, max_width=440)
