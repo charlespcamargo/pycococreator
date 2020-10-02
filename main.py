@@ -3,6 +3,7 @@ from pycococreatortools import PyCocoCreatorTools
 from coco_dataset import CocoDataset
 from coco_json_utils import CocoJsonCreator
 from args import Args
+import os
 
 if __name__ == "__main__":
     import argparse
@@ -35,21 +36,30 @@ if __name__ == "__main__":
     parser.add_argument("-rh", "--height", dest="height", default=3000, type=int,
                         help="height to resize images")
 
-    args = parser.parse_args()
+    #args = parser.parse_args()
 
-    # this process will be slow.
-    if(Args.generate_automatic_info == 1):
-        cjc = CocoJsonCreator()
-        cjc.main(args)
 
-    creator_tools = PyCocoCreatorTools()
-    coco_dataset = CocoDataset(args)
+    args = Args()
+    coco_dataset = CocoDataset()
     coco_dataset.main(args)
 
-    coco = PyCocoCreator()
-    coco.main(args, creator_tools)
+    # this process will be slow.
+    if(args.generate_automatic_info == 1):
+        cjc = CocoJsonCreator()
+        cjc.main(args)        
+    
+    if(not os.path.exists(args.annotation_path)):    
+        raise Exception(f'File not found {args.annotation_path}')
 
-    # Just For Jupyter/Colab
-    # coco_dataset.display_categories()
-    # html = coco_dataset.display_image(coco_dataset.image_id)
-    # IPython.display.HTML(html)
+    creator_tools = PyCocoCreatorTools()
+    
+    # all loaded images
+    images_ids = coco_dataset.images
+
+    # take just some of all
+    if(True):
+      n = 1
+      images_ids = list(images_ids)[0:n] 
+
+    coco_dataset.display_categories()
+    coco_dataset.save_images_to_html(images_ids, max_width=1800)

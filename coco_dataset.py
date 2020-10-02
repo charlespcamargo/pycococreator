@@ -17,6 +17,7 @@ class CocoDataset():
 
         self.annotation_path = args.base_path + \
             args.database_name + '/' + args.instances_json
+
         self.base_path = args.base_path
         self.image_dir = os.path.join(self.base_path, args.images_path)
         self.mask_dir = os.path.join(self.base_path, args.masks_path)
@@ -28,9 +29,12 @@ class CocoDataset():
         # than colors in an image, the remaining segmentations will default to white
         self.colors = ['red', 'green', 'blue', 'yellow']
 
-        json_file = open(self.annotation_path)
-        self.coco = json.load(json_file)
-        json_file.close()
+        if(not os.path.exists(self.annotation_path)):
+            raise Exception(f'File not found {self.annotation_path}')
+
+        with open(self.annotation_path) as json_file:
+            self.coco = json.load(json_file)
+            json_file.close()
 
         self._process_info()
         self._process_licenses()
@@ -74,7 +78,8 @@ class CocoDataset():
         print(f"Masks total: {total_masks}\n")
 
         if(total_image != total_masks):
-            raise f'sorry, there is not segmentations for image_id: {image_id}'
+            raise Exception(
+                f'sorry, there is not segmentations for image_id: {image_id}')
 
         self.images = dict()
         self.annotations = dict()
@@ -147,6 +152,7 @@ class CocoDataset():
         data = datetime.datetime.now().strftime("%Y.%m.%d_%H%M%S")
 
         html_file = open(f"results/{data}_00.html", "w")
+        css = self.get_css()
 
         for image_id in images_ids:
             html = self.save_image_to_html(
@@ -154,15 +160,18 @@ class CocoDataset():
             html_file.write(html)
 
             if (image_id > 0 and image_id % 5 == 0):
+                html_file.write(css)
                 html_file.close()
                 print(f"\nfile saved at: results/{data}_{image_id}.html\n")
                 print('==================')
 
                 html_file = open(f"results/{data}_{image_id}.html", "w")
 
-        html_file.close()
-        print(f"\nfile saved at: results/{data}_{image_id}.html\n")
-        print('==================')
+        if (html != None and (len(images_ids) == 1 or image_id % 5 != 0)):
+            html_file.write(css)
+            html_file.close()
+            print(f"\nfile saved at: results/{data}_{image_id}.html\n")
+            print('==================')
 
     def save_image_to_html(self, image_index=None, image_id=None, max_width=880, show_bbox=True, show_polys=True, show_crowds=True):
 
@@ -237,7 +246,8 @@ class CocoDataset():
                     px = 0
                     rle_list = []
 
-                    for j, counts in enumerate(seg['segmentation']['counts']):
+                    for j, counts in enumerate(seg['segmentation'][0]):
+
                         if counts < 0:
                             print(
                                 f'ERROR: One of the counts was negative, treating as 0: {counts}')
@@ -248,11 +258,11 @@ class CocoDataset():
                             px += counts
                         else:
                             # Create one or more vertical rectangles
-                            x1 = trunc(px / image_height)
-                            y1 = px % image_height
+                            x1 = trunc(px / adjusted_height)
+                            y1 = px % adjusted_height
                             px += counts
-                            x2 = trunc(px / image_height)
-                            y2 = px % image_height
+                            x2 = trunc(px / adjusted_height)
+                            y2 = px % adjusted_height
 
                             if x2 == x1:  # One vertical column
                                 line = [x1, y1, 1, (y2 - y1)]
@@ -260,7 +270,7 @@ class CocoDataset():
                                 rle_list.append(line)
                             else:  # Two or more columns
                                 # Insert left-most line first
-                                left_line = [x1, y1, 1, (image_height - y1)]
+                                left_line = [x1, y1, 1, (adjusted_height - y1)]
                                 left_line = np.multiply(
                                     left_line, adjusted_ratio)
                                 rle_list.append(left_line)
@@ -269,7 +279,7 @@ class CocoDataset():
                                 lines_spanned = x2 - x1 + 1
                                 if lines_spanned > 2:  # Two columns won't have a middle
                                     middle_lines = [
-                                        (x1 + 1), 0, lines_spanned - 2, image_height]
+                                        (x1 + 1), 0, lines_spanned - 2, adjusted_height]
                                     middle_lines = np.multiply(
                                         middle_lines, adjusted_ratio)
                                     rle_list.append(middle_lines)
@@ -289,18 +299,16 @@ class CocoDataset():
         return html
 
     def create_html(self, image_id, image_path, mask_path, adjusted_width, adjusted_height, show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes, html):
-        
+
         segs = 0
-        if(len(bboxes)>0):
+        if(len(bboxes) > 0):
             segs = len(self.segmentations[image_id])
-        
+
         # Draw the image
-        html += '<div class="container" style="position:relative;">'
-        html += f'<div style="position:relative;border:1 px solid lime">'
-        html += f'<b>Image: <b/>{image_id} - <b>Segmentations:</b> {segs}'
-        html += f'<img src="{str(image_path)}" style="position:relative; top:3px; left:3px; width:{adjusted_width}px; float:left">'
-        html += '<div class="svgclass">'
-        html += f'<svg width="{adjusted_width}" height="{adjusted_height}">'
+        html += f'<div class="container" >'
+        html += f'<b>Image: </b>{image_id} - <b>Segmentations:</b> {segs}'
+        html += f'<img src="{str(image_path)}" >'
+        html += f'<svg >'
 
         # Draw shapes on image
         if show_polys:
@@ -319,23 +327,26 @@ class CocoDataset():
         if show_bbox:
             for seg_id, bbox in bboxes.items():
                 html += f'<rect x="{bbox[0]}" y="{bbox[1]}" width="{bbox[2]}" height="{bbox[3]}" \
-                    style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0" />'
+                    style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.1" />'
 
         html += '</svg>'
         html += '</div>'
 
         # Draw the mask image
-        html += '<div style="position:relative;">'
-        html += f'<img src="{str(mask_path)}" style="position:relative; top:0px; left:0px; width:{adjusted_width}px; float:right">'
+        html += '<div class="container" >'
+        html += f'<img src="{str(mask_path)}" style="width:{adjusted_width}px; float:right">'
         html += '</div>'
-
-        html += '</div>'
-        html += '</div>'
-        html += '<style>'
-        html += '.svgclass {position: absolute; top:0px; left: 0px} img'
-        html += '</style>'
 
         return html
+
+    def get_css(self):
+        css = "<style>"
+        css += " .container { position: relative; display: inline-block; transition: transform 150ms ease-in-out; } "
+        css += " .container img {  display: block; max-width: 100%;height:auto; }"
+        css += " .container svg { position: absolute;top: 18px;left: 0; width:100%; height:100%; }"
+        css += "</style>"
+
+        return css
 
 
 if __name__ == "__main__":
