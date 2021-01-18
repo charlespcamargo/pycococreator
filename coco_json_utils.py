@@ -219,8 +219,7 @@ class AnnotationJsonUtils():
 
             # Find contours in the isolated mask
             mask = np.asarray(mask, dtype=np.float32)
-            contours = measure.find_contours(
-                mask, 0.1, positive_orientation='low')
+            contours = measure.find_contours(mask, 0.1, positive_orientation='low')
 
             polygons = []
             for contour in contours:
@@ -309,7 +308,7 @@ class AnnotationJsonUtils():
             t += total[len(total)-1]
 
         print(
-            f'annotation [WAS] found for image - image_id: {self.image_id} - {t}px total')
+            f' annotation [WAS] found for image - image_id: {self.image_id} - {t}px total')
 
 
 class CocoJsonCreator():
@@ -420,7 +419,7 @@ class CocoJsonCreator():
 
         image_objs = []
         annotation_objs = []
-        image_id = 0
+        image_id = 1
 
         image_license = self.dataset_info['license']['id']
 
@@ -453,14 +452,6 @@ class CocoJsonCreator():
 
             image_id += 1
 
-            # if(True):
-            #     self.resize(Image.open(image_path),
-            #                 self.resize_width, self.resize_height).show()
-            #     self.resize(Image.open(image_path),
-            #                 self.resize_width, self.resize_height).show()
-
-            #     print('a')
-
         return image_objs, annotation_objs
 
     def main(self, args):
@@ -472,8 +463,7 @@ class CocoJsonCreator():
 
             categories, category_ids_by_name = self.create_categories()
             images, annotations = self.create_images_and_annotations(
-                args, category_ids_by_name)
-
+                args, category_ids_by_name) 
             master_obj = {
                 'info': info,
                 'licenses': licenses,
@@ -483,11 +473,11 @@ class CocoJsonCreator():
             }
 
             # Write the json to a file
-            output_path = Path(self.dataset_dir) / 'coco_instances.json'
+            output_path = Path(self.dataset_dir) / args.instances_json
             with open(output_path, 'w+') as output_file:
                 json.dump(master_obj, output_file)
 
-            print(f'Annotations successfully written to file:\n{output_path}')
+            print(f'CocoJSONUtils - Annotations successfully written to file:\n{output_path}')
 
 
 class GenerateAutomaticInfo():
@@ -538,8 +528,11 @@ class GenerateAutomaticInfo():
 
         output_path = Path(self.base_path) / \
             self.database_name / self.mask_definition
+
         with open(output_path, 'w+') as output_file:
             json.dump(masks_json, output_file)
+
+        print(f'CocoJSONUtils - masks successfully written to file:\n{output_path}')
 
         with open(output_path) as json_file:
             self.instances_json = json.load(json_file)
@@ -565,6 +558,8 @@ class GenerateAutomaticInfo():
             self.base_path + self.database_name) / 'dataset_info.json'
         with open(output_path, 'w+') as output_file:
             json.dump(dataset_info, output_file)
+
+        print(f'CocoJSONUtils - database successfully written to file:\n{output_path}')
 
         with open(output_path) as json_file:
             self.dataset_info = json.load(json_file)
@@ -609,7 +604,7 @@ if __name__ == "__main__":
                         default="hedychium_coronarium", help="path to root of datasets")
 
     parser.add_argument("-b", "--base_path", dest="base_path",
-                        default="../images/train/", help="base path to images")
+                        default="../images/train/", help="base path to images") 
 
     parser.add_argument("-i", "--images_path", dest="images_path",
                         default="images/", help="path to images")

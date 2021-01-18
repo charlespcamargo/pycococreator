@@ -51,15 +51,15 @@ if __name__ == "__main__":
     if(not os.path.exists(args.annotation_path)):    
         raise Exception(f'File not found {args.annotation_path}')
 
-    creator_tools = PyCocoCreatorTools()
+    #creator_tools = PyCocoCreatorTools()
     
     # all loaded images
     images_ids = coco_dataset.images
 
     # take just some of all
     if(True):
-      n = 1
+      n = 10
       images_ids = list(images_ids)[0:n] 
 
     coco_dataset.display_categories()
-    coco_dataset.save_images_to_html(images_ids, max_width=1800)
+    coco_dataset.save_images_to_html(images_ids, max_width=900)

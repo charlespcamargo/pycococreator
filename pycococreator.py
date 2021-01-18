@@ -74,6 +74,8 @@ class PyCocoCreator():
             image = Image.open(image_filename)
             image_info = creator_tools.create_image_info(
                 image_id, os.path.basename(image_filename), image.size)
+            
+            has_annotation = False
 
             # filter for associated png annotations
             for root, _, files in os.walk(self.ANNOTATION_DIR):
@@ -116,9 +118,10 @@ class PyCocoCreator():
             image_id = image_id + 1
 
     def write_file(self):
-        with open(f'{self.base_path}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
+        with open(f'{self.base_path}{self.DATABASE_NAME}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
             json.dump(self.coco_output, output_json_file)
-            print(f"\nfile saved {self.base_path}{self.DATABASE_NAME}.json\n")
+            
+            print(f"\nPyCocoCreator - file saved {self.base_path}{self.DATABASE_NAME}/{self.DATABASE_NAME}.json\n")
 
     def filter_for_images(self, root, files):
         file_types = ['*.jpeg', '*.jpg', '*.JPEG', '*.JPG', '*.png', '*.PNG']
@@ -126,9 +129,8 @@ class PyCocoCreator():
         files = [os.path.join(root, f) for f in files]
         files = [f for f in files if re.match(file_types, f)]
 
-        ############
-        #files = ['../images/train/images/DJI_0596.JPG',
-        #         '../images/train/images/DJI_0595.JPG']
+        ############            
+        files = ['../images/train/images/DJI_0594.JPG']    
         ############
 
         return files

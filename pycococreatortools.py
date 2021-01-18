@@ -16,7 +16,7 @@ class PyCocoCreatorTools():
         return int(text) if text.isdigit() else text.lower()
 
     def natrual_key(self, key):
-        return [convert(c) for c in re.split('([0-9]+)', key)]
+        return [self.convert(c) for c in re.split('([0-9]+)', key)]
 
     def resize_binary_mask(self, array, new_size):
         image = Image.fromarray(array.astype(np.uint8)*255)
@@ -101,7 +101,7 @@ class PyCocoCreatorTools():
 
         if category_info["is_crowd"]:
             is_crowd = 1
-            segmentation = binary_mask_to_rle(binary_mask)
+            segmentation = self.binary_mask_to_rle(binary_mask)
         else:
             is_crowd = 0
             segmentation = self.binary_mask_to_polygon(binary_mask, tolerance)

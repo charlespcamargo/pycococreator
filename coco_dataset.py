@@ -15,13 +15,10 @@ import IPython
 class CocoDataset():
     def main(self, args):
 
-        self.annotation_path = args.base_path + \
-            args.database_name + '/' + args.instances_json
-
-        self.base_path = args.base_path
+        self.base_path = args.base_path 
+        self.annotation_path = os.path.join(self.base_path, args.database_name, args.instances_json)
         self.image_dir = os.path.join(self.base_path, args.images_path)
-        self.mask_dir = os.path.join(self.base_path, args.masks_path)
-
+        self.mask_dir = os.path.join(self.base_path, args.masks_path) 
         self.max_width = args.max_width
         self.image_id = args.image_id
 
@@ -29,12 +26,12 @@ class CocoDataset():
         # than colors in an image, the remaining segmentations will default to white
         self.colors = ['red', 'green', 'blue', 'yellow']
 
-        if(not os.path.exists(self.annotation_path)):
-            raise Exception(f'File not found {self.annotation_path}')
-
+        if(not os.path.exists(self.annotation_path)): 
+            raise Exception(f'File not found {self.annotation_path}, please generate before run.')
+        
         with open(self.annotation_path) as json_file:
             self.coco = json.load(json_file)
-            json_file.close()
+            json_file.close() 
 
         self._process_info()
         self._process_licenses()
@@ -79,7 +76,7 @@ class CocoDataset():
 
         if(total_image != total_masks):
             raise Exception(
-                f'sorry, there is not segmentations for image_id: {image_id}')
+                f'sorry, there is not segmentations for image_id...')
 
         self.images = dict()
         self.annotations = dict()
@@ -91,6 +88,7 @@ class CocoDataset():
                 self.annotations[image_id] = image
             else:
                 print(f'ERROR: Skipping duplicate image id: {image}')
+
 
     def _process_segmentations(self):
         self.segmentations = dict()
@@ -208,8 +206,7 @@ class CocoDataset():
         adj_width_mask, adj_ratio_mask, adj_height_mask = self.resize_image(
             mask_image)
 
-        print(
-            f'ImageId: {image_id} - RESIZE: w: {adj_width_mask} - h: {adj_height_mask} - ratio: {adjusted_ratio}')
+        print(f'ImageId: {image_id} - RESIZE: w: {adj_width_mask} - h: {adj_height_mask} - ratio: {adjusted_ratio}')
 
         # Create bounding boxes and polygons
         bboxes = dict()
@@ -234,7 +231,7 @@ class CocoDataset():
                     seg['bbox'], adjusted_ratio).astype(int)
 
                 # meus dados estão errados, por algum motivo, ele é 1, mas está igual a zero
-                if seg['iscrowd'] == 0:
+                if seg['iscrowd'] == 1:
                     polygons[seg['id']] = []
                     for seg_points in seg['segmentation']:
                         seg_points = np.multiply(
@@ -305,9 +302,10 @@ class CocoDataset():
             segs = len(self.segmentations[image_id])
 
         # Draw the image
-        html += f'<div class="container" >'
-        html += f'<b>Image: </b>{image_id} - <b>Segmentations:</b> {segs}'
-        html += f'<img src="{str(image_path)}" >'
+        html += f'<div>'
+        html += f'<b>Image: </b>{image_id} - <b>Segmentations:</b> {segs} <br />'
+        html += f'<div class="container" >'        
+        html += f'<img src="{str(image_path)}" style="width:{adjusted_width}px;">'
         html += f'<svg >'
 
         # Draw shapes on image
@@ -327,14 +325,15 @@ class CocoDataset():
         if show_bbox:
             for seg_id, bbox in bboxes.items():
                 html += f'<rect x="{bbox[0]}" y="{bbox[1]}" width="{bbox[2]}" height="{bbox[3]}" \
-                    style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.1" />'
+                    style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.5" />'
 
         html += '</svg>'
         html += '</div>'
 
         # Draw the mask image
-        html += '<div class="container" >'
-        html += f'<img src="{str(mask_path)}" style="width:{adjusted_width}px; float:right">'
+        html += f'<div class="container" style="opacity: 0.15" >'
+        html += f'<img src="{str(mask_path)}" style="width:{adjusted_width}px;">'
+        html += '</div>'
         html += '</div>'
 
         return html
@@ -343,7 +342,7 @@ class CocoDataset():
         css = "<style>"
         css += " .container { position: relative; display: inline-block; transition: transform 150ms ease-in-out; } "
         css += " .container img {  display: block; max-width: 100%;height:auto; }"
-        css += " .container svg { position: absolute;top: 18px;left: 0; width:100%; height:100%; }"
+        css += " .container svg { position: absolute;top: 0px;left: 0; width:100%; height:100%; }"
         css += "</style>"
 
         return css
@@ -374,16 +373,16 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--base_path", dest="base_path",
                         default="../images/train/", help="base path to images")
 
-    args = parser.parse_args()
+    #args = parser.parse_args()
 
-    ds = CocoDataset()
-    ds.main(args)
+    #ds = CocoDataset()
+    #ds.main(args)
 
     # all loaded images
-    images_ids = ds.images
+    #images_ids = ds.images
 
     # take just some of all
-    n = 20
-    images_ids = list(images_ids)[0:n]
-    ds.display_categories()
-    ds.save_images_to_html(images_ids, max_width=440)
+    # n = 20
+    # images_ids = list(images_ids)[0:n]
+    # ds.display_categories()
+    # ds.save_images_to_html(images_ids, max_width=440)

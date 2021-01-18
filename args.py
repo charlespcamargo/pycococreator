@@ -6,7 +6,7 @@ class Args():
     base_path = '../images/train/'
     images_path = "images/"
     masks_path = "masks/"
-    mask_definition = 'mask_definitions.json'
+    mask_definition = 'mask_definition.json'
     instances_json = 'coco_instances.json'
     annotation_path = '../images/train/hedychium_coronarium/coco_instances.json'
     max_width = 920
@@ -14,7 +14,7 @@ class Args():
     
     # coco_json_utils
     dataset_info = '../images/train/hedychium_coronarium/dataset_info.json'
-    generate_automatic_info = False
+    generate_automatic_info = True
     width_to_resize = 4000
     height_to_resize = 3000
 
