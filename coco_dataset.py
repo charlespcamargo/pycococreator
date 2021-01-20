@@ -143,8 +143,7 @@ class CocoDataset():
 
         html = None
 
-        print('Images')
-        print('==================')
+        print('Images') 
 
         data = datetime.datetime.now().strftime("%Y.%m.%d_%H%M%S")
 
@@ -161,11 +160,10 @@ class CocoDataset():
                 image_id=image_id, max_width=max_width, show_bbox=show_bbox, show_polys=show_polys, show_crowds=show_crowds, show_mask_image=show_mask_image, item_in_page=item_in_page)
             html_file.write(html)
 
-            if (i > 0 and i % page_items_size == 0):
+            if ((i + 1) % page_items_size == 0):
                 html_file.write(css)
                 html_file.close()
-                print(f"\nfile saved at: results/{data}_{image_id}.html\n ---- i: {i} - item_in_page; {item_in_page}")
-                print('==================')
+                print(f"\nfile saved at: results/{data}_{image_id}.html - i: {i} - item_in_page: {item_in_page}\n\n")
 
                 item_in_page = 0
                 html_file = None
@@ -195,15 +193,15 @@ class CocoDataset():
             image_id = list(self.images)[image_index]
 
         # Print image info
-        image = self.images[image_id]
-        mask_image = self.annotations[image_id]
+        image_info = self.images[image_id]
+        mask_image_info = self.annotations[image_id]
 
-        for key, val in image.items():
-            print(f'  {key}: {val}')
+        # for key, val in image.items():
+        #     print(f'  {key}: {val}')
 
         # Open the image
-        image, image_path = self.load_image(self.image_dir, image)
-        mask_image, mask_path = self.load_image(self.mask_dir, mask_image)
+        image, image_path = self.load_image(self.image_dir, image_info)
+        mask_image, mask_path = self.load_image(self.mask_dir, mask_image_info)
 
         if(max_width != None and max_width > 0):
             self.max_width = max_width
@@ -214,7 +212,8 @@ class CocoDataset():
         adj_width_mask, adj_ratio_mask, adj_height_mask = self.resize_image(
             mask_image)
 
-        print(f'ImageId: {image_id} - RESIZE: w: {adj_width_mask} - h: {adj_height_mask} - ratio: {adjusted_ratio}')
+        print(f'ImageId: {image_id} - file_name: {image_info["file_name"]} - width: {image_info["width"]} - \
+                height: {image_info["height"]} - RESIZE: w: {adj_width_mask} - h: {adj_height_mask} - ratio: {adjusted_ratio}')
 
         # Create bounding boxes and polygons
         bboxes = dict()

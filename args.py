@@ -2,26 +2,46 @@
 
 # Just For Test in Jupyter/Colab
 class Args():
-    database_name = 'hedychium_coronarium'
-    base_path = '../images/train/'
-    images_path = "images/"
-    masks_path = "masks/"
-    mask_definition = 'mask_definition.json'
-    instances_json = 'coco_instances.json'
-    annotation_path = '../images/train/hedychium_coronarium/coco_instances.json'
-    max_width = 920
-    image_id = None
     
-    # coco_json_utils
-    dataset_info = '../images/train/hedychium_coronarium/dataset_info.json'
-    generate_automatic_info = False
-    width_to_resize = 4000
-    height_to_resize = 3000
+    def __init__(self): 
+        self.main()
 
-    width = 4000
-    height = 3000
+    def main(self,
+             stage='test', 
+             database_name = 'hedychium_coronarium', 
+             images_path = "images/", 
+             masks_path = "masks/",
+             mask_definition = 'mask_definition.json',
+             instances_json = 'coco_instances.json',
+             max_width = 920,
+             image_id = None,
+             width = 4000,
+             height = 3000,
+             width_to_resize = 4000,
+             height_to_resize = 3000,
+             generate_automatic_info = False):
+        # stage = train, test, val
+        self.stage= stage
+        self.database_name = database_name
+        self.images_path = images_path
+        self.masks_path = masks_path
+        self.mask_definition = mask_definition
+        self.instances_json = instances_json
+        self.max_width = max_width
+        self.image_id = image_id
+        self.width = width
+        self.height = height
+        self.width_to_resize = width_to_resize
+        self.height_to_resize = height_to_resize
+        self.generate_automatic_info = generate_automatic_info
 
+        self.base_path = f'../images/{self.stage}/'
+        self.annotation_path = f'../images/{self.stage}/hedychium_coronarium/coco_instances.json'
+        # coco_json_utils
+        self.dataset_info = f'../images/{self.stage}/hedychium_coronarium/dataset_info.json'
+    
     def show(self):
+        print(f'stage: {self.stage}')
         print(f'database_name: {self.database_name}')
         print(f'base_path: {self.base_path}')
         print(f'image_path: {self.images_path}')
