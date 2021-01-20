@@ -10,11 +10,11 @@ class Args():
     instances_json = 'coco_instances.json'
     annotation_path = '../images/train/hedychium_coronarium/coco_instances.json'
     max_width = 920
-    image_id = 10    
+    image_id = None
     
     # coco_json_utils
     dataset_info = '../images/train/hedychium_coronarium/dataset_info.json'
-    generate_automatic_info = True
+    generate_automatic_info = False
     width_to_resize = 4000
     height_to_resize = 3000
 

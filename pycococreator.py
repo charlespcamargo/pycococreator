@@ -93,9 +93,9 @@ class PyCocoCreator():
                     # [x['id'] for x in CATEGORIES if x['name'] in annotation_filename][0]
                     class_id = 1
 
-                    category_info = {'id': class_id,
-                                     'is_crowd': 'crowd' in image_filename}
+                    category_info = {'id': class_id, 'is_crowd': True}
                     #category_info = {'id': class_id, 'is_crowd': True}
+                    
                     binary_mask = np.asarray(Image.open(
                         annotation_filename).convert('1')).astype(np.uint8)
 
@@ -118,7 +118,7 @@ class PyCocoCreator():
             image_id = image_id + 1
 
     def write_file(self):
-        with open(f'{self.base_path}{self.DATABASE_NAME}/{self.DATABASE_NAME}.json', 'w') as output_json_file:
+        with open(f'{self.base_path}{self.DATABASE_NAME}/{self.DATABASE_NAME}.json', 'w+') as output_json_file:
             json.dump(self.coco_output, output_json_file)
             
             print(f"\nPyCocoCreator - file saved {self.base_path}{self.DATABASE_NAME}/{self.DATABASE_NAME}.json\n")
@@ -130,7 +130,7 @@ class PyCocoCreator():
         files = [f for f in files if re.match(file_types, f)]
 
         ############            
-        files = ['../images/train/images/DJI_0594.JPG']    
+        #files = ['../images/train/images/DJI_0594.JPG']    
         ############
 
         return files
@@ -152,5 +152,5 @@ class PyCocoCreator():
         return int(text) if text.isdigit() else text.lower()
 
     def natrual_key(self, key):
-        return [convert(c) for c in re.split('([0-9]+)', key)]
+        return [self.convert(c) for c in re.split('([0-9]+)', key)]
  

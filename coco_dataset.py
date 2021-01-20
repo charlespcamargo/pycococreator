@@ -16,11 +16,11 @@ class CocoDataset():
     def main(self, args):
 
         self.base_path = args.base_path 
-        self.annotation_path = os.path.join(self.base_path, args.database_name, args.instances_json)
+        self.annotation_path = os.path.join(self.base_path, args.database_name, args.database_name + '.json')
         self.image_dir = os.path.join(self.base_path, args.images_path)
         self.mask_dir = os.path.join(self.base_path, args.masks_path) 
         self.max_width = args.max_width
-        self.image_id = args.image_id
+        self.image_id = args.image_id 
 
         # Customize these segmentation colors if you like, if there are more segmentations
         # than colors in an image, the remaining segmentations will default to white
@@ -71,8 +71,7 @@ class CocoDataset():
         total_image = len(glob.glob(self.image_dir + '/*'))
         total_masks = len(glob.glob(self.mask_dir + '/*'))
 
-        print(f"Images total: {total_image}")
-        print(f"Masks total: {total_masks}\n")
+        print(f"Images total: {total_image} - Masks total: {total_masks}\n")
 
         if(total_image != total_masks):
             raise Exception(
@@ -140,7 +139,7 @@ class CocoDataset():
 
         return adjusted_width, adjusted_ratio, adjusted_height
 
-    def save_images_to_html(self, images_ids, max_width=880, show_bbox=True, show_polys=True, show_crowds=True):
+    def save_images_to_html(self, images_ids, max_width=880, show_bbox=True, show_polys=True, show_crowds=True, show_mask_image=True, page_items_size=4):
 
         html = None
 
@@ -149,29 +148,38 @@ class CocoDataset():
 
         data = datetime.datetime.now().strftime("%Y.%m.%d_%H%M%S")
 
-        html_file = open(f"results/{data}_00.html", "w")
+        html_file = None
         css = self.get_css()
+        item_in_page = 0 
 
-        for image_id in images_ids:
-            html = self.save_image_to_html(
-                image_id=image_id, max_width=max_width)
-            html_file.write(html)
-
-            if (image_id > 0 and image_id % 5 == 0):
-                html_file.write(css)
-                html_file.close()
-                print(f"\nfile saved at: results/{data}_{image_id}.html\n")
-                print('==================')
-
+        for i, image_id in enumerate(images_ids):
+            
+            if(not html_file):
                 html_file = open(f"results/{data}_{image_id}.html", "w")
 
-        if (html != None and (len(images_ids) == 1 or image_id % 5 != 0)):
+            html = self.save_image_to_html(
+                image_id=image_id, max_width=max_width, show_bbox=show_bbox, show_polys=show_polys, show_crowds=show_crowds, show_mask_image=show_mask_image, item_in_page=item_in_page)
+            html_file.write(html)
+
+            if (i > 0 and i % page_items_size == 0):
+                html_file.write(css)
+                html_file.close()
+                print(f"\nfile saved at: results/{data}_{image_id}.html\n ---- i: {i} - item_in_page; {item_in_page}")
+                print('==================')
+
+                item_in_page = 0
+                html_file = None
+
+            item_in_page += 1
+
+        if (not html and len(images_ids) % page_items_size >= 1):
+            html_file.write(html)
             html_file.write(css)
             html_file.close()
-            print(f"\nfile saved at: results/{data}_{image_id}.html\n")
+            print(f"\nfile saved at: results/{data}_remains.html\n")
             print('==================')
 
-    def save_image_to_html(self, image_index=None, image_id=None, max_width=880, show_bbox=True, show_polys=True, show_crowds=True):
+    def save_image_to_html(self, image_index=None, image_id=None, max_width=880, show_bbox=True, show_polys=True, show_crowds=True, show_mask_image=True, item_in_page=0):
 
         html = ""
         print('==================')
@@ -219,19 +227,17 @@ class CocoDataset():
 
         else:
             for i, seg in enumerate(self.segmentations[image_id]):
+
                 if i < len(self.colors):
                     seg_colors[seg['id']] = self.colors[i]
                 else:
                     seg_colors[seg['id']] = 'white'
 
-                print(
-                    f'  {seg_colors[seg["id"]]}: {self.categories[seg["category_id"]]["name"]}')
-
                 bboxes[seg['id']] = np.multiply(
                     seg['bbox'], adjusted_ratio).astype(int)
 
                 # meus dados estão errados, por algum motivo, ele é 1, mas está igual a zero
-                if seg['iscrowd'] == 1:
+                if seg['iscrowd'] == 0 or seg['iscrowd'] == False:
                     polygons[seg['id']] = []
                     for seg_points in seg['segmentation']:
                         seg_points = np.multiply(
@@ -241,15 +247,14 @@ class CocoDataset():
                 else:
                     # Decode the RLE
                     px = 0
-                    rle_list = []
+                    rle_list = [] 
 
-                    for j, counts in enumerate(seg['segmentation'][0]):
+                    for j, counts in enumerate(seg['segmentation']['counts']):
 
                         if counts < 0:
-                            print(
-                                f'ERROR: One of the counts was negative, treating as 0: {counts}')
+                            print(f'ERROR: One of the counts was negative, treating as 0: {counts}')
                             counts = 0
-
+                        
                         if j % 2 == 0:
                             # Empty pixels
                             px += counts
@@ -260,89 +265,97 @@ class CocoDataset():
                             px += counts
                             x2 = trunc(px / adjusted_height)
                             y2 = px % adjusted_height
-
-                            if x2 == x1:  # One vertical column
+                            
+                            if x2 == x1: # One vertical column
                                 line = [x1, y1, 1, (y2 - y1)]
                                 line = np.multiply(line, adjusted_ratio)
                                 rle_list.append(line)
-                            else:  # Two or more columns
+                            else: # Two or more columns
                                 # Insert left-most line first
                                 left_line = [x1, y1, 1, (adjusted_height - y1)]
-                                left_line = np.multiply(
-                                    left_line, adjusted_ratio)
+                                left_line = np.multiply(left_line, adjusted_ratio)
                                 rle_list.append(left_line)
-
+                                
                                 # Insert middle lines (if needed)
                                 lines_spanned = x2 - x1 + 1
-                                if lines_spanned > 2:  # Two columns won't have a middle
-                                    middle_lines = [
-                                        (x1 + 1), 0, lines_spanned - 2, adjusted_height]
-                                    middle_lines = np.multiply(
-                                        middle_lines, adjusted_ratio)
+                                if lines_spanned > 2: # Two columns won't have a middle
+                                    middle_lines = [(x1 + 1), 0, lines_spanned - 2, adjusted_height]
+                                    middle_lines = np.multiply(middle_lines, adjusted_ratio)
                                     rle_list.append(middle_lines)
-
+                                    
                                 # Insert right-most line
                                 right_line = [x2, 0, 1, y2]
-                                right_line = np.multiply(
-                                    right_line, adjusted_ratio)
+                                right_line = np.multiply(right_line, adjusted_ratio)
                                 rle_list.append(right_line)
-
+                                
                     if len(rle_list) > 0:
                         rle_regions[seg['id']] = rle_list
 
         html = self.create_html(image_id, image_path, mask_path, adjusted_width, adjusted_height,
-                                show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes, html)
+                                show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes, html, show_mask_image,item_in_page)
 
         return html
 
-    def create_html(self, image_id, image_path, mask_path, adjusted_width, adjusted_height, show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes, html):
+    def create_html(self, image_id, image_path, mask_path, adjusted_width, adjusted_height, show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes, html, show_mask_image, item_in_page):
 
         segs = 0
         if(len(bboxes) > 0):
             segs = len(self.segmentations[image_id])
 
         # Draw the image
-        html += f'<div>'
-        html += f'<b>Image: </b>{image_id} - <b>Segmentations:</b> {segs} <br />'
+        html += f'<b>Image: {image_id} - Segmentations: {segs}  - Size (w/h): {adjusted_width}px/{adjusted_height}px</b><br />'
         html += f'<div class="container" >'        
-        html += f'<img src="{str(image_path)}" style="width:{adjusted_width}px;">'
-        html += f'<svg >'
+        html += f'<img src="{str(image_path)}" />'
 
-        # Draw shapes on image
-        if show_polys:
-            for seg_id, points_list in polygons.items():
-                for points in points_list:
-                    html += f'<polygon points="{points}" \
-                        style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.5; stroke-width:1;" />'
-
-        if show_crowds:
-            for seg_id, line_list in rle_regions.items():
-                for line in line_list:
-                    html += f'<rect x="{line[0]}" y="{line[1]}" width="{line[2]}" height="{line[3]}" \
-                        style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; \
-                        fill-opacity:0.5; stroke-opacity:0.5" />'
-
-        if show_bbox:
-            for seg_id, bbox in bboxes.items():
-                html += f'<rect x="{bbox[0]}" y="{bbox[1]}" width="{bbox[2]}" height="{bbox[3]}" \
-                    style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.5" />'
-
-        html += '</svg>'
-        html += '</div>'
+        svg = f'<svg>'
+        svg += self.get_shapes_as_svg(show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes)
+        svg += f'</svg>'
+        html += svg
 
         # Draw the mask image
-        html += f'<div class="container" style="opacity: 0.15" >'
-        html += f'<img src="{str(mask_path)}" style="width:{adjusted_width}px;">'
-        html += '</div>'
+        if(show_mask_image):
+            html += f'<img src="{str(mask_path)}" />'
+        
+            svg = f'<svg style="top:{adjusted_height}px !important;" >'
+            svg += self.get_shapes_as_svg(show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes)
+            svg += f'</svg>'
+            html += svg
+        
+        
         html += '</div>'
 
         return html
 
+    def get_shapes_as_svg(self, show_polys, polygons, show_crowds, rle_regions, seg_colors, show_bbox, bboxes):        
+        
+        svg_html = f''
+
+        # Draw shapes on image
+        if show_polys:
+            for seg_id, points_list in polygons.items():                
+                for i, point in enumerate(points_list):
+                    converted_list = ''
+                    lst = point.split(' ')
+                    lst = [x.strip() for x in lst if x.strip()]
+                    converted_list = ' '.join([str(k) + ',' if j % 2 == 0 else str(k) for j, k in enumerate(lst)])
+
+                    svg_html += f'<polygon points="{converted_list}" style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.3; stroke-width:1;" />' 
+        
+        if show_crowds == 1 or show_crowds == True:
+            for seg_id, line_list in rle_regions.items():
+                for line in line_list:
+                    svg_html += f'<rect x="{line[0]}" y="{line[1]}" width="{line[2]}" height="{line[3]}" style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.5; stroke-opacity:0.5" />'
+
+        if show_bbox:
+            for seg_id, bbox in bboxes.items():
+                svg_html += f'<rect x="{bbox[0]}" y="{bbox[1]}" width="{bbox[2]}" height="{bbox[3]}" style="fill:{seg_colors[seg_id]}; stroke:{seg_colors[seg_id]}; fill-opacity:0.3; stroke-opacity:0.3" />'
+
+        return svg_html
+
     def get_css(self):
         css = "<style>"
-        css += " .container { position: relative; display: inline-block; transition: transform 150ms ease-in-out; } "
-        css += " .container img {  display: block; max-width: 100%;height:auto; }"
-        css += " .container svg { position: absolute;top: 0px;left: 0; width:100%; height:100%; }"
+        css += " .container { position: relative; display: inline-block; } "
+        css += " .container svg { position: absolute; top: 0px; left: 0; width:100%; height:100%; }" 
         css += "</style>"
 
         return css

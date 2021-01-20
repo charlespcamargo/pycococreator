@@ -40,26 +40,39 @@ if __name__ == "__main__":
 
 
     args = Args()
+    args.show()
     coco_dataset = CocoDataset()
-    coco_dataset.main(args)
+    pycococreator = PyCocoCreator()
+    pycococreatortools = PyCocoCreatorTools()
+    cocojsoncreator = CocoJsonCreator()
 
-    # this process will be slow.
-    if(args.generate_automatic_info == 1):
-        cjc = CocoJsonCreator()
-        cjc.main(args)        
+    pycococreator.main(args, pycococreatortools)
+    cocojsoncreator.main(args)
+
+    try:
+        # just to show and check
+        coco_dataset.main(args)
+    except:
+        print("In File('coco_instances.json') not found Error, please generate before run")
+        # In error 
+        # File not found "coco_instances.json", please generate before run.
+        #if(args.generate_automatic_info == 1):  
+            #cocojsoncreator.main(args)   
     
     if(not os.path.exists(args.annotation_path)):    
         raise Exception(f'File not found {args.annotation_path}')
 
-    #creator_tools = PyCocoCreatorTools()
-    
     # all loaded images
     images_ids = coco_dataset.images
 
     # take just some of all
-    if(True):
-      n = 10
-      images_ids = list(images_ids)[0:n] 
+    # if(True):
+    #   n = 10
+    #   images_ids = list(images_ids)[0:n] 
+
+    #
+    #images_ids = list(images_ids)
+    #filteredList = filter('DJI_0594', images_ids)
 
     coco_dataset.display_categories()
     coco_dataset.save_images_to_html(images_ids, max_width=900)
