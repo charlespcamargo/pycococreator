@@ -108,6 +108,15 @@ class PyCocoCreatorTools():
             if not segmentation:
                 return None
 
+        # Detectron2 - bbox_mode
+        # https://detectron2.readthedocs.io/en/latest/modules/structures.html#detectron2.structures.BoxMode
+        # detectron2.structures.BoxMode
+        # XYXY_ABS = 0
+        # XYWH_ABS = 1
+        # XYXY_REL = 2
+        # XYWH_REL = 3
+        # XYWHA_ABS = 4
+
         annotation_info = {
             "id": annotation_id,
             "image_id": image_id,
@@ -115,6 +124,7 @@ class PyCocoCreatorTools():
             "iscrowd": is_crowd,
             "area": area.tolist(),
             "bbox": bounding_box.tolist(),
+            "bbox_mode": 0, # 0
             "segmentation": segmentation,
             "width": binary_mask.shape[1],
             "height": binary_mask.shape[0],
