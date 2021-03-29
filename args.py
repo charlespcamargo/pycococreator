@@ -19,7 +19,8 @@ class Args():
              height = 3000,
              width_to_resize = 4000,
              height_to_resize = 3000,
-             generate_automatic_info = False):
+             generate_automatic_info = False,
+             iscrowd = 1):
         # stage = train, test, val
         self.stage= stage
         self.database_name = database_name
@@ -34,6 +35,7 @@ class Args():
         self.width_to_resize = width_to_resize
         self.height_to_resize = height_to_resize
         self.generate_automatic_info = generate_automatic_info
+        self.iscrowd = iscrowd
 
         self.base_path = f'../images/{self.stage}/'
         self.annotation_path = f'../images/{self.stage}/hedychium_coronarium/coco_instances.json'
@@ -56,4 +58,5 @@ class Args():
         print(f'height_to_resize: {self.height_to_resize}')
         print(f'width: {self.width}')
         print(f'height: {self.height}')
+        print(f'iscrowd: {self.iscrowd}')
 

@@ -235,8 +235,7 @@ class CocoDataset():
                 bboxes[seg['id']] = np.multiply(
                     seg['bbox'], adjusted_ratio).astype(int)
 
-                # meus dados estão errados, por algum motivo, ele é 1, mas está igual a zero
-                if seg['iscrowd'] == 0 or seg['iscrowd'] == False:
+                if seg['iscrowd'] == 0:
                     polygons[seg['id']] = []
                     for seg_points in seg['segmentation']:
                         seg_points = np.multiply(

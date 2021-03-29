@@ -99,7 +99,7 @@ class PyCocoCreatorTools():
         if bounding_box is None:
             bounding_box = mask.toBbox(binary_mask_encoded)
 
-        if category_info["is_crowd"]:
+        if category_info["is_crowd"] == 1:
             is_crowd = 1
             segmentation = self.binary_mask_to_rle(binary_mask)
         else:
