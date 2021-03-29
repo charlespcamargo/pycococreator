@@ -21,6 +21,8 @@ class PyCocoCreator():
         self.IMAGE_DIR = os.path.join(self.base_path, self.images_path)
         self.ANNOTATION_DIR = os.path.join(self.base_path, self.masks_path)
 
+        self.iscrowd = 0
+
         self.init_file()
 
         # filter for jpeg images
@@ -90,11 +92,10 @@ class PyCocoCreator():
                 for annotation_filename in annotation_files:
 
                     print(f'image_id: {image_id} - {annotation_filename}')
-                    # [x['id'] for x in CATEGORIES if x['name'] in annotation_filename][0]
-                    class_id = 1
+                    [x['id'] for x in CATEGORIES if x['name'] in annotation_filename][0]
+                    class_id = 0
 
-                    category_info = {'id': class_id, 'is_crowd': True}
-                    #category_info = {'id': class_id, 'is_crowd': True}
+                    category_info = {'id': class_id, 'is_crowd': self.iscrowd}
                     
                     binary_mask = np.asarray(Image.open(
                         annotation_filename).convert('1')).astype(np.uint8)

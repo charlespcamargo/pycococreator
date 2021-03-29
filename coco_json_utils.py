@@ -112,10 +112,12 @@ class AnnotationJsonUtils():
     """ Creates an annotation object to describe a COCO dataset
     """
     args = None
+    iscrowd = 0
     imgJsonUtils = ImageJsonUtils()
 
     def __init__(self):
         self.annotation_id_index = 0
+        self.iscrowd = 0
 
     def setArgs(self, args):
         self.args = args
@@ -204,7 +206,7 @@ class AnnotationJsonUtils():
         for key, mask in self.isolated_masks.items():
             annotation = dict()
             annotation['segmentation'] = []
-            annotation['iscrowd'] = 1
+            annotation['iscrowd'] = self.iscrowd
             annotation['image_id'] = self.image_id
 
             if not self.category_ids.get(key):
