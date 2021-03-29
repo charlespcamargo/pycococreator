@@ -37,10 +37,10 @@ class Args():
         self.generate_automatic_info = generate_automatic_info
         self.iscrowd = iscrowd
 
-        self.base_path = f'../images/{self.stage}/'
-        self.annotation_path = f'../images/{self.stage}/hedychium_coronarium/coco_instances.json'
+        self.base_path = f'../{self.database_name}/{self.stage}/'
+        self.annotation_path = f'../{self.database_name}/{self.stage}/coco_instances.json'
         # coco_json_utils
-        self.dataset_info = f'../images/{self.stage}/hedychium_coronarium/dataset_info.json'
+        self.dataset_info = f'../{self.database_name}/{self.stage}/dataset_info.json'
     
     def show(self):
         print(f'stage: {self.stage}')
