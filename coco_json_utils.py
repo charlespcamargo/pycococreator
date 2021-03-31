@@ -278,38 +278,37 @@ class AnnotationJsonUtils():
         return a_id
 
     def _get_metrics_to_show(self):
-        x, y = self.mask_image.size
-        a = self.annotations[0]['area']
-        c = self.annotations[0]['iscrowd']
-        b = self.annotations[0]['bbox']
+        # x, y = self.mask_image.size
+        # a = self.annotations[0]['area']
+        # c = self.annotations[0]['iscrowd']
+        # b = self.annotations[0]['bbox']
 
-        seg = self.annotations[0]['segmentation']
-        total_segs = len(seg)
+        # seg = self.annotations[0]['segmentation']
+        # total_segs = len(seg)
 
-        t = 0
-        total = np.array([0])
+        #t = 0
+        # total = np.array([0])
 
-        x = [sys.maxsize, -sys.maxsize - 1]
-        y = [sys.maxsize, -sys.maxsize - 1]
+        # x = [sys.maxsize, -sys.maxsize - 1]
+        # y = [sys.maxsize, -sys.maxsize - 1]
 
-        for i in range(0, total_segs):
-            for j in range(0, len(seg[i])):
-                if (j % 2 == 0):
-                    if(seg[i][j] < x[0]):
-                        x[0] = seg[i][j]
-                    if(seg[i][j] > x[1]):
-                        x[1] = seg[i][j]
-                else:
-                    if(seg[i][j] < y[0]):
-                        y[0] = seg[i][j]
-                    if(seg[i][j] > y[1]):
-                        y[1] = seg[i][j]
+        # for i in range(0, total_segs):
+        #     for j in range(0, len(seg[i])):
+        #         if (j % 2 == 0):
+        #             if(seg[i][j] < x[0]):
+        #                 x[0] = seg[i][j]
+        #             if(seg[i][j] > x[1]):
+        #                 x[1] = seg[i][j]
+        #         else:
+        #             if(seg[i][j] < y[0]):
+        #                 y[0] = seg[i][j]
+        #             if(seg[i][j] > y[1]):
+        #                 y[1] = seg[i][j]
 
-            total = np.append(total, round((x[1] - x[0]) + (y[1] - y[0]), 2))
-            t += total[len(total)-1]
+        #     total = np.append(total, round((x[1] - x[0]) + (y[1] - y[0]), 2))
+        #     t += total[len(total)-1]
 
-        print(
-            f' annotation [WAS] found for image - image_id: {self.image_id} - {t}px total')
+        print(f' annotation [WAS] found for image - image_id: {self.image_id}')
 
 
 class CocoJsonCreator():
@@ -321,7 +320,7 @@ class CocoJsonCreator():
             args: ArgumentParser arguments
         """
         self.instances_json = args.instances_json
-        self.dataset_dir = args.base_path + args.database_name + '/'
+        self.dataset_dir = '' #args.base_path + args.database_name + '/'
         self.dataset_info = args.dataset_info
 
         if(args.generate_automatic_info == 1):
@@ -329,12 +328,11 @@ class CocoJsonCreator():
             at.main(args)
 
             if(self.dataset_info is None):
-                self.dataset_info = Path(
-                    args.base_path + args.database_name) / 'dataset_info.json'
+                self.dataset_info = Path(args.base_path) / 'dataset_info.json'
 
         # else:
         # Validate the mask definition file exists
-        full_path = args.base_path + args.database_name + '/' + args.mask_definition
+        full_path = args.base_path + '/' + args.mask_definition
         mask_definition_file = Path(full_path)
         if not (mask_definition_file.exists and mask_definition_file.is_file()):
             raise FileNotFoundError(
@@ -424,13 +422,13 @@ class CocoJsonCreator():
 
         image_license = self.dataset_info['license']['id']
 
-        mask_count = len(self.mask_definitions['masks'])
+        mask_count = len(self.mask_definitions['annotations'])
         print(f'Processing {mask_count} mask definitions...')
 
         # For each mask definition, create image and annotations
         # comentado
-        for file_name, mask_def in tqdm(self.mask_definitions['masks'].items()):
-            # for file_name, mask_def in list(self.mask_definitions['masks'].items()):
+        for file_name, mask_def in tqdm(self.mask_definitions['annotations'].items()):
+            # for file_name, mask_def in list(self.mask_definitions['annotations'].items()):
             # Create a coco image json item
             image_path = Path(args.base_path) / file_name
             image_obj = iju.create_coco_image(
@@ -440,7 +438,7 @@ class CocoJsonCreator():
 
             image_objs.append(image_obj)
 
-            mask_path = Path(args.base_path) / mask_def['mask']
+            mask_path = Path(args.base_path) / mask_def['annotations']
 
             # Create a dict of category ids keyed by rgb_color
             category_ids_by_rgb = dict()
@@ -503,13 +501,13 @@ class GenerateAutomaticInfo():
     def masks(self, ext=''):
         imgs = glob.glob(self.base_path + self.image_folder + '*' + ext)
         masks_json = {}
-        masks_json['masks'] = {}
+        masks_json['annotations'] = {}
 
         for i, item in enumerate(imgs):
             imgs[i] = imgs[i].split('/')[self.parts - 1]
-            masks_json['masks'].update({
+            masks_json['annotations'].update({
                 'images/' + imgs[i]: {
-                    'mask': 'masks/' + imgs[i],
+                    'annotations': 'annotations/' + imgs[i],
                     'color_categories': {
                         "(100, 100, 100)": {
                             'category': 'hedychium_coronarium',
@@ -523,17 +521,16 @@ class GenerateAutomaticInfo():
             'vegetation': ['hedychium_coronarium']
         }
 
-        dir = Path(self.base_path) / self.database_name
+        dir = Path(self.base_path)
         if(not os.path.exists(dir)):
             os.makedirs(dir)
 
-        output_path = Path(self.base_path) / \
-            self.database_name / self.mask_definition
+        output_path = Path(self.base_path) / self.mask_definition
 
         with open(output_path, 'w+') as output_file:
             json.dump(masks_json, output_file)
 
-        print(f'CocoJSONUtils - masks successfully written to file:\n{output_path}')
+        print(f'CocoJSONUtils - masks successfully written to file: {output_path}\n\n')
 
         with open(output_path) as json_file:
             self.instances_json = json.load(json_file)
@@ -544,9 +541,9 @@ class GenerateAutomaticInfo():
                 "description": "COCO 2020 Dataset",
                 "url": "http://cocodataset.org",
                 "version": "1.0",
-                "year": 2020,
+                "year": 2021,
                 "contributor": "COCO Consortium",
-                "date_created": "2020/07/22"
+                "date_created": "2021/03/30"
             },
             "license": {
                 "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
@@ -555,12 +552,11 @@ class GenerateAutomaticInfo():
             }
         }
 
-        output_path = Path(
-            self.base_path + self.database_name) / 'dataset_info.json'
+        output_path = Path(self.base_path) / 'dataset_info.json'
         with open(output_path, 'w+') as output_file:
             json.dump(dataset_info, output_file)
 
-        print(f'CocoJSONUtils - database successfully written to file:\n{output_path}')
+        print(f'CocoJSONUtils - database successfully written to file: {output_path}\n\n')
 
         with open(output_path) as json_file:
             self.dataset_info = json.load(json_file)
@@ -611,7 +607,7 @@ if __name__ == "__main__":
                         default="images/", help="path to images")
 
     parser.add_argument("-m", "--masks_path", dest="masks_path",
-                        default="masks/", help="path to masks")
+                        default="annotations/", help="path to masks")
 
     args = parser.parse_args()
 

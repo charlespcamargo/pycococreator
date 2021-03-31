@@ -16,7 +16,7 @@ class CocoDataset():
     def main(self, args):
 
         self.base_path = args.base_path 
-        self.annotation_path = os.path.join(self.base_path, args.database_name, args.database_name + '.json')
+        self.annotation_path = os.path.join(self.base_path, args.stage + '.json')
         self.image_dir = os.path.join(self.base_path, args.images_path)
         self.mask_dir = os.path.join(self.base_path, args.masks_path) 
         self.max_width = args.max_width
@@ -371,7 +371,7 @@ if __name__ == "__main__":
                         default="images/", help="path to images")
 
     parser.add_argument("-m", "--masks_path", dest="masks_path",
-                        default="masks/", help="path to masks")
+                        default="annotations/", help="path to masks")
 
     parser.add_argument("-mw", "--max_width", dest="max_width", default=920, type=int,
                         help="max width to show images")

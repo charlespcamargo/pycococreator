@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--images_path", dest="images_path",
                         default="images/", help="path to images")
     parser.add_argument("-m", "--masks_path", dest="masks_path",
-                        default="masks/", help="path to masks")
+                        default="annotations/", help="path to masks")
     parser.add_argument("-j", "--instances_json", dest="instances_json", default="coco_instances.json",
                          help="path to JSON path of coco instances")
     parser.add_argument("-mw", "--max_width", dest="max_width", default=920, type=int,

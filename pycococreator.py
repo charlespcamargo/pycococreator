@@ -21,6 +21,7 @@ class PyCocoCreator():
         self.IMAGE_DIR = os.path.join(self.base_path, self.images_path)
         self.ANNOTATION_DIR = os.path.join(self.base_path, self.masks_path)
 
+        self.stage = args.stage
         self.iscrowd = args.iscrowd
 
         self.init_file()
@@ -28,7 +29,6 @@ class PyCocoCreator():
         # filter for jpeg images
         for root, _, files in os.walk(self.IMAGE_DIR):
             image_files = self.filter_for_images(root, files)
-            has_annotation = False
             self.process_images(image_files, creator_tools)
 
         self.write_file()
@@ -119,10 +119,10 @@ class PyCocoCreator():
             image_id = image_id + 1
 
     def write_file(self):
-        with open(f'{self.base_path}{self.DATABASE_NAME}/{self.DATABASE_NAME}.json', 'w+') as output_json_file:
+        with open(f'{self.base_path}/{self.stage}.json', 'w+') as output_json_file:
             json.dump(self.coco_output, output_json_file)
             
-            print(f"\nPyCocoCreator - file saved {self.base_path}{self.DATABASE_NAME}/{self.DATABASE_NAME}.json\n")
+            print(f"\n\nPyCocoCreator - file saved {self.base_path}{self.stage}.json\n")
 
     def filter_for_images(self, root, files):
         file_types = ['*.jpeg', '*.jpg', '*.JPEG', '*.JPG', '*.png', '*.PNG']

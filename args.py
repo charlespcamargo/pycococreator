@@ -10,10 +10,10 @@ class Args():
              stage='test', 
              database_name = 'hedychium_coronarium', 
              images_path = "images/", 
-             masks_path = "masks/",
+             masks_path = "annotations/",
              mask_definition = 'mask_definition.json',
              instances_json = 'coco_instances.json',
-             max_width = 920,
+             max_width = 4000,
              image_id = None,
              width = 4000,
              height = 3000,
@@ -22,7 +22,7 @@ class Args():
              generate_automatic_info = False,
              iscrowd = 1):
         # stage = train, test, val
-        self.stage= stage
+        self.stage = stage
         self.database_name = database_name
         self.images_path = images_path
         self.masks_path = masks_path
@@ -38,9 +38,9 @@ class Args():
         self.iscrowd = iscrowd
 
         self.base_path = f'../{self.database_name}/{self.stage}/'
-        self.annotation_path = f'../{self.database_name}/{self.stage}/coco_instances.json'
+        self.annotation_path = f'../{self.database_name}/{self.stage}_coco_instances.json'
         # coco_json_utils
-        self.dataset_info = f'../{self.database_name}/{self.stage}/dataset_info.json'
+        self.dataset_info = f'../{self.database_name}/dataset_info.json'
     
     def show(self):
         print(f'stage: {self.stage}')
